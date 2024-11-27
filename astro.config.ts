@@ -11,7 +11,10 @@ export default defineConfig({
       ? `https://${process.env.VERCEL_URL}/`
       : 'https://localhost:3000/',
   trailingSlash: 'ignore',
-  integrations: [sitemap(), UnoCSS({ injectReset: true })],
+  integrations: [
+    sitemap(),
+    UnoCSS({ injectReset: true }),
+    ],
   vite: {
     optimizeDeps: {
       exclude: ['@resvg/resvg-js'],
