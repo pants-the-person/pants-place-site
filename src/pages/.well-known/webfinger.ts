@@ -10,23 +10,23 @@ export async function GET({params, request}) {
         "links": [
           {
             "rel": "http://openid.net/specs/connect/1.0/issuer",
-            "href": "https://auth.pants.place"
+            "href": "https://cloud.pants.place"
           },
           {
             "rel": "authorization_endpoint",
-            "href": "https://auth.pants.place/application/o/tailscale/oauth2/authorize"
+            "href": "https://cloud.pants.place/apps/oidc/authorize"
           },
           {
             "rel": "token_endpoint",
-            "href": "https://auth.pants.place/application/o/tailscale/oauth2/token"
+            "href": "https://cloud.pants.place/apps/oidc/token"
           },
           {
             "rel": "userinfo_endpoint",
-            "href": "https://auth.pants.place/application/o/tailscale/userinfo"
+            "href": "https://cloud.pants.place/apps/oidc/userinfo"
           },
           {
             "rel": "jwks_uri",
-            "href": "https://auth.pants.place/application/o/tailscale/jwks"
+            "href": "https://cloud.pants.place/apps/oidc/jwks"
           },
           {
             "rel": "http://webfinger.net/rel/profile-page",
