@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { AppProps } from '../../kernel/types';
 import { releaseWineDrop, takeWineDrop, openWineDrop } from '../../kernel/wine';
 import { wineAppsById } from '../../generated/wine-apps';
+import WineMenuBar, {
+  type WineMenu,
+  type WineMenuCommand,
+} from './WineMenuBar';
 
 function deactivateTerminal() {
   window.dispatchEvent(new CustomEvent('pants:deactivate-terminal'));
@@ -25,6 +29,9 @@ export default function WineApp({ windowId, appProps, api }: AppProps) {
   const [ready, setReady] = useState(false);
   const [status, setStatus] = useState(isDrop ? 'Waiting for the Wine runtime...' : 'Starting Wine-Assembly...');
   const [error, setError] = useState<string | null>(null);
+  const [menus, setMenus] = useState<WineMenu[]>([]);
+  const [menuHwnd, setMenuHwnd] = useState(0);
+  const [running, setRunning] = useState(false);
 
   const src = isDrop
     ? '/wine/?embed=1&drop=1&single-app=1'
@@ -94,6 +101,7 @@ export default function WineApp({ windowId, appProps, api }: AppProps) {
       switch (data.type) {
         case 'wine:focus':
           deactivateTerminal();
+          window.dispatchEvent(new Event('pants:wine-blur'));
           break;
         case 'wine:ready': {
           markReady();
@@ -109,6 +117,12 @@ export default function WineApp({ windowId, appProps, api }: AppProps) {
           if (next) api.setTitle(`Wine-Assembly — ${next}`);
           break;
         }
+        case 'wine:menu': {
+          const nextMenus = Array.isArray(data.menus) ? (data.menus as WineMenu[]) : [];
+          setMenus(nextMenus);
+          setMenuHwnd(Number(data.hwnd) || 0);
+          break;
+        }
         case 'wine:error': {
           const message = String(data.message || 'Wine-Assembly failed to start the program.');
           setError(message);
@@ -122,10 +136,13 @@ export default function WineApp({ windowId, appProps, api }: AppProps) {
         }
         case 'wine:running':
           setError(null);
+          setRunning(true);
           setStatus('Running.');
           break;
         case 'wine:stopped':
           setStatus('The program has stopped.');
+          setRunning(false);
+          setMenus([]);
           break;
         default:
           break;
@@ -167,18 +184,57 @@ export default function WineApp({ windowId, appProps, api }: AppProps) {
     });
   }
 
+  function menuCommand(command: WineMenuCommand) {
+    const frame = iframeRef.current;
+    if (!frame?.contentWindow) return;
+    frame.contentWindow.postMessage(
+      { type: 'wine:menu-command', hwnd: menuHwnd, ...command },
+      window.location.origin,
+    );
+  }
+
+  function hostAction(action: string) {
+    switch (action) {
+      case 'restart':
+        reload();
+        break;
+      case 'fullscreen':
+        fullscreen();
+        break;
+      case 'browser':
+        openExternal();
+        break;
+      case 'about':
+        about();
+        break;
+      case 'close':
+        api.close();
+        break;
+      default:
+        break;
+    }
+  }
+
+  const hostItems = [
+    { label: 'Restart', action: 'restart' },
+    { label: 'Full Screen', action: 'fullscreen' },
+    { label: 'Open in Browser', action: 'browser' },
+    { label: 'About Wine-Assembly...', action: 'about' },
+    { label: 'Close Program', action: 'close' },
+  ];
+
   return (
     <div
       class="wine-app"
       onPointerDown={() => deactivateTerminal()}
       style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
     >
-      <div class="menu-bar">
-        <button onClick={reload}>File</button>
-        <button onClick={() => setReloadKey((value) => value + 1)}>App</button>
-        <button onClick={fullscreen}>View</button>
-        <button onClick={about}>Help</button>
-      </div>
+      <WineMenuBar
+        menus={menus}
+        hostItems={hostItems}
+        onCommand={menuCommand}
+        onHostAction={hostAction}
+      />
       <div class="toolbar">
         <button onClick={reload}>Restart</button>
         <button onClick={fullscreen}>Full Screen</button>
@@ -228,7 +284,7 @@ export default function WineApp({ windowId, appProps, api }: AppProps) {
       <div class="status-bar">
         <div class="status-bar-field">{status || 'Wine-Assembly ready.'}</div>
         <div class="status-bar-field">{app?.title || title}</div>
-        <div class="status-bar-field">{ready ? 'Running' : 'Loading'}</div>
+        <div class="status-bar-field">{running ? 'Running' : ready ? 'Ready' : 'Loading'}</div>
       </div>
     </div>
   );

@@ -75,6 +75,8 @@ The assets are served locally; there are no runtime CDN dependencies. `.wasm`, `
 
 Use `npm run wine:prepare` to force the whole pipeline and `npm run wine:verify` to check the mirror against `wine-assets.lock.json`.
 
+The preparation step also applies Pants Place's small runtime patches: the renderer crop that removes guest window chrome, and two temporary menu exports in `src/09c5-menu.wat` used to publish the guest menu bar. The WAT file is restored from the submodule's `HEAD` immediately after the wasm build, so the submodule stays clean.
+
 ## Future auto-deploy
 
 The current deployment was performed with an authenticated local `wrangler deploy`. To restore push-to-deploy for the Worker:

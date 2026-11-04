@@ -36,6 +36,183 @@
   let ready = false;
   let lastStatus = '';
   let lastRunning = false;
+  let lastMenuJson = '';
+  let menuPollTimer = null;
+
+  function menuContext() {
+    const shell = window.wineShell;
+    const wine = shell && shell.currentWine;
+    if (!wine) return null;
+    const renderer = wine.renderer;
+    let win = null;
+    let bestArea = -1;
+    if (renderer && renderer.windows) {
+      for (const candidate of Object.values(renderer.windows)) {
+        if (!candidate || !candidate.visible || candidate.isChild || candidate.isDialog) continue;
+        if (candidate.w <= 0 || candidate.h <= 0) continue;
+        const exports = (candidate.wasm || wine).exports;
+        if (!exports || !exports.menu_bar_count) continue;
+        if (renderer._ensureWatMenu) {
+          try { renderer._ensureWatMenu(candidate); } catch { /* not ready */ }
+        }
+        try {
+          if ((exports.menu_bar_count(candidate.hwnd) | 0) <= 0) continue;
+        } catch {
+          continue;
+        }
+        const area = (candidate.w | 0) * (candidate.h | 0);
+        if (area > bestArea) {
+          bestArea = area;
+          win = candidate;
+        }
+      }
+    }
+    if (!win) win = shell.firstTopLevelWindow ? shell.firstTopLevelWindow(wine) : null;
+    if (!win) return null;
+    const wasm = win.wasm || wine;
+    const exports = wasm && wasm.exports;
+    const memory = wine.memory || (exports && exports.memory);
+    if (!exports || !memory || !exports.menu_bar_count) return null;
+    if (renderer && renderer._ensureWatMenu) {
+      try { renderer._ensureWatMenu(win); } catch { /* menu may not have loaded yet */ }
+    }
+    return { wine, win, exports, memory };
+  }
+
+  function menuString(memory, ptr, len) {
+    if (!ptr || !len || len < 0 || len > 8192) return '';
+    try {
+      const view = new Uint8Array(memory.buffer, ptr, len);
+      const bytes = new Uint8Array(len);
+      bytes.set(view);
+      return new TextDecoder('windows-1252')
+        .decode(bytes)
+        .replace(/&&/g, '\u0000')
+        .replace(/&/g, '')
+        .replace(/\u0000/g, '&')
+        .trim();
+    } catch {
+      return '';
+    }
+  }
+
+  function menuFlags(flags) {
+    return {
+      separator: !!(flags & 0x01),
+      disabled: !!(flags & 0x02),
+      checked: !!(flags & 0x04),
+    };
+  }
+
+  function snapshotMenu(force = false) {
+    const ctx = menuContext();
+    if (!ctx) {
+      if (force || lastMenuJson !== '[]') {
+        lastMenuJson = '[]';
+        post('wine:menu', { hwnd: 0, menus: [] });
+      }
+      return;
+    }
+    const { win, exports: e, memory } = ctx;
+    const hwnd = win.hwnd | 0;
+    const count = e.menu_bar_count(hwnd) | 0;
+    const menus = [];
+    for (let top = 0; top < count; top++) {
+      const label = menuString(
+        memory,
+        e.menu_bar_label_ptr(hwnd, top) | 0,
+        e.menu_bar_label_len(hwnd, top) | 0,
+      );
+      if (!label) continue;
+      const topId = e.menu_bar_id(hwnd, top) | 0;
+      const childCount = e.menu_child_count(hwnd, top) | 0;
+      const items = [];
+      for (let child = 0; child < childCount; child++) {
+        const flags = e.menu_child_flags(hwnd, top, child) | 0;
+        const id = e.menu_child_id(hwnd, top, child) | 0;
+        const state = menuFlags(flags);
+        const item = {
+          label: menuString(
+            memory,
+            e.menu_child_label_ptr(hwnd, top, child) | 0,
+            e.menu_child_label_len(hwnd, top, child) | 0,
+          ),
+          shortcut: menuString(
+            memory,
+            e.menu_child_shortcut_ptr(hwnd, top, child) | 0,
+            e.menu_child_shortcut_len(hwnd, top, child) | 0,
+          ),
+          id,
+          ...state,
+        };
+        if (!item.separator && !item.label) item.label = `Item ${id || child + 1}`;
+        const subCount = e.menu_child_sub_count(hwnd, top, child) | 0;
+        if (subCount > 0) {
+          const children = [];
+          for (let sub = 0; sub < subCount; sub++) {
+            const subFlags = e.menu_subchild_flags(hwnd, top, child, sub) | 0;
+            const subId = e.menu_subchild_id(hwnd, top, child, sub) | 0;
+            const subState = menuFlags(subFlags);
+            const subItem = {
+              label: menuString(
+                memory,
+                e.menu_subchild_label_ptr(hwnd, top, child, sub) | 0,
+                e.menu_subchild_label_len(hwnd, top, child, sub) | 0,
+              ),
+              id: subId,
+              ...subState,
+            };
+            if (!subItem.separator && !subItem.label) subItem.label = `Item ${subId || sub + 1}`;
+            children.push(subItem);
+          }
+          item.children = children;
+        }
+        items.push(item);
+      }
+      menus.push({
+        top,
+        label,
+        id: topId,
+        items,
+      });
+    }
+    const json = JSON.stringify(menus);
+    if (force || json !== lastMenuJson) {
+      lastMenuJson = json;
+      post('wine:menu', { hwnd, menus });
+    }
+  }
+
+  async function handleMenuCommand(data) {
+    const ctx = menuContext();
+    if (!ctx) return;
+    const hwnd = (data.hwnd | 0) || (ctx.win.hwnd | 0);
+    const e = ctx.exports;
+    const top = data.top | 0;
+    if (data.child == null) {
+      e.menu_activate_bar_command(hwnd, top);
+    } else {
+      e.menu_open(hwnd, top);
+      // menu_open posts WM_INITMENU/WM_INITMENUPOPUP; give the guest a slice
+      // to refresh dynamic labels and enable/check states before activating.
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      e.menu_set_hover(data.child | 0);
+      if (data.sub != null && e.menu_set_sub_hover) e.menu_set_sub_hover(data.sub | 0);
+      const id = e.menu_activate() | 0;
+      if (!id && e.menu_close) e.menu_close();
+    }
+    lastMenuJson = '';
+    setTimeout(() => snapshotMenu(true), 250);
+  }
+
+  function startMenuPolling() {
+    if (menuPollTimer) return;
+    menuPollTimer = setInterval(() => {
+      if (window.wineShell && window.wineShell.runningApps && window.wineShell.runningApps.length) {
+        snapshotMenu(false);
+      }
+    }, 500);
+  }
 
   function publishStatus(force) {
     const text = statusText();
@@ -47,6 +224,13 @@
     if (running !== lastRunning) {
       lastRunning = running;
       post(running ? 'wine:running' : 'wine:stopped');
+      if (running) {
+        startMenuPolling();
+        setTimeout(() => snapshotMenu(true), 500);
+      } else {
+        lastMenuJson = '[]';
+        post('wine:menu', { hwnd: 0, menus: [] });
+      }
     }
   }
 
@@ -123,6 +307,8 @@
     if (!data || typeof data !== 'object') return;
     if (data.type === 'wine:drop') {
       void launchFiles(data.files);
+    } else if (data.type === 'wine:menu-command') {
+      void handleMenuCommand(data);
     }
   });
 

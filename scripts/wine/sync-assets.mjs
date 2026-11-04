@@ -326,6 +326,15 @@ export async function syncAssets() {
     files,
     apps,
   };
+  // Keep the timestamp stable when a refresh produced byte-identical data.
+  try {
+    const previous = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+    if (JSON.stringify({ ...lock, generatedAt: previous.generatedAt }) === JSON.stringify(previous)) {
+      lock.generatedAt = previous.generatedAt;
+    }
+  } catch {
+    /* first sync */
+  }
   fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n');
 
   console.log(

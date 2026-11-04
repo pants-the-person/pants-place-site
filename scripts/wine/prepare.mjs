@@ -9,6 +9,7 @@ import {
 } from './config.mjs';
 import { syncRuntime } from './sync-runtime.mjs';
 import { syncAssets } from './sync-assets.mjs';
+import { withEmbedMenuExports } from './patch-menu-wat.mjs';
 
 function run(command, args, options = {}) {
   execFileSync(command, args, { stdio: 'inherit', ...options });
@@ -26,8 +27,13 @@ function ensureDeps() {
 
 function buildWasm() {
   fs.mkdirSync(path.join(wineRoot, 'build'), { recursive: true });
-  run(process.execPath, ['tools/concat-wat.js'], { cwd: wineRoot });
-  run(process.execPath, ['tools/build-compile-wat.js'], { cwd: wineRoot });
+  const restore = withEmbedMenuExports();
+  try {
+    run(process.execPath, ['tools/concat-wat.js'], { cwd: wineRoot });
+    run(process.execPath, ['tools/build-compile-wat.js'], { cwd: wineRoot });
+  } finally {
+    restore();
+  }
 }
 
 function submoduleCommit() {

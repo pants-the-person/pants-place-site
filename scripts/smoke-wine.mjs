@@ -67,6 +67,17 @@ if (!(await pinball.locator('#status').textContent()).includes('Running')) {
 if (!(await sol.locator('#status').textContent()).includes('Running')) {
   throw new Error('Solitaire did not reach Running');
 }
+const menuLabels = await page.locator('.wine-menu-button').allTextContents();
+if (!menuLabels.includes('Game') || !menuLabels.includes('Wine')) {
+  throw new Error(`Solitaire menus did not merge: ${JSON.stringify(menuLabels)}`);
+}
+await page.locator('.wine-menu-button', { hasText: 'Game' }).first().click();
+await page.waitForTimeout(200);
+if (!(await page.locator('.wine-menu-item', { hasText: 'Deal' }).count())) {
+  throw new Error('Solitaire Game menu has no Deal item');
+}
+await page.locator('.wine-menu-item', { hasText: 'Deal' }).first().click();
+await page.waitForTimeout(500);
 
 // Drop a small freeware executable through Explorer's file picker.
 await page.locator('.win98-window', { hasText: 'My Computer' }).count();

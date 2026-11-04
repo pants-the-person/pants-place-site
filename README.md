@@ -92,6 +92,16 @@ Upstream documents these as published only at its own site owner's discretion. `
 
 Explorer's **Run with Wine...** button or a drag-and-drop onto an Explorer window accepts `.exe`, `.zip`, `.iso` and `.cue` bundles. The file is read by the browser, mounted into the guest's virtual filesystem, and launched through the same registry path as the built-in programs. Nothing is uploaded.
 
+### Window chrome and menus
+
+Wine programs open inside the normal Pants Place window frame. The guest program's own caption, borders, minimize/maximize/close buttons and menu bar are cropped out of the iframe; its menu bar is published through a small bridge and rendered in the Pants Place menu bar next to the host **Wine** menu.
+
+- Guest `File`, `Edit`, `View`, `Game`, `Help`, and similar menus work as normal.
+- **Wine** contains Restart, Full Screen, Open in Browser, About and Close Program.
+- Programs with custom-drawn chrome (notably Winamp) keep their own skin, because those controls are part of the program's client pixels rather than a Win32 caption.
+- Programs with no Win32 menu (Pinball, RollerCoaster Tycoon's game screen) show only the **Wine** menu.
+- Guest dialogs still use their own window rectangle, so a modal dialog is never cropped.
+
 ### Licensing
 
 The Wine-Assembly engine is MIT. The mirrored application binaries keep their own licenses and provenance; see `THIRD_PARTY_NOTICES.md` and the generated `public/wine/APP-SOURCES.md` (upstream's `test/binaries/SOURCES.md`).
