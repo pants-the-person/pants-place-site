@@ -10,7 +10,8 @@ import { initSettings } from '../../kernel/settings';
 import { startPlayerLoop, stopPlayerLoop } from '../../kernel/player';
 import { playSound } from '../../kernel/audio';
 import { showDialog } from '../../kernel/dialogs';
-import { documents as documentStore } from '../../kernel/content';
+import { documents as documentStore, initFileSystem, mediaFiles } from '../../kernel/content';
+import { installFilesystemBridge } from '../../kernel/fs-bridge';
 import type { AppProps, DesktopDocument, WindowState } from '../../kernel/types';
 
 function WindowContent({ win }: { win: WindowState }) {
@@ -59,7 +60,11 @@ export default function Desktop({ documents }: { documents: DesktopDocument[] })
   useEffect(() => {
     initSettings();
     startPlayerLoop();
+    installFilesystemBridge();
     documentStore.value = documents;
+    void initFileSystem(documentStore.value, mediaFiles.value).catch((error) => {
+      console.error('Filesystem initialization failed:', error);
+    });
 
     const closeContextMenu = (event: PointerEvent) => {
       const target = event.target as HTMLElement;

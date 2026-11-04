@@ -4,6 +4,7 @@ import type { MediaEntry } from '../integrations/media-manifest';
 export interface VfsFile {
   type: 'file';
   name: string;
+  path?: string;
   ext: string;
   size: number;
   modified: string;
@@ -17,6 +18,7 @@ export interface VfsFile {
 export interface VfsFolder {
   type: 'folder';
   name: string;
+  path?: string;
   modified: string;
   children: VfsNode[];
 }
@@ -64,6 +66,18 @@ export function buildVfs(documents: DesktopDocument[], media: MediaEntry[]): Vfs
         name: 'Media',
         modified: now(),
         children: mediaFiles,
+      },
+      {
+        type: 'folder',
+        name: 'Downloads',
+        modified: now(),
+        children: [],
+      },
+      {
+        type: 'folder',
+        name: 'Desktop',
+        modified: now(),
+        children: [],
       },
       {
         type: 'folder',

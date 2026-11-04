@@ -11,6 +11,11 @@ Pants Place 98 is an unofficial fan project. The following third-party works are
 - **v86** — BSD-2-Clause — https://github.com/copy/v86
 - **spessasynth_lib** — Apache-2.0 — https://github.com/spessasus/spessasynth_lib
 - **@fontsource/vt323** — OFL-1.1 — https://fontsource.org/fonts/vt323
+- **ZenFS (`@zenfs/core`, `@zenfs/dom`)** — LGPL-3.0-or-later — https://zenfs.dev · https://github.com/zen-fs/core · https://www.npmjs.com/package/@zenfs/core
+
+  ZenFS, Licensed under the LGPL 3.0 or later and COPYING.md, Copyright © James Prevett and other ZenFS contributors.
+
+  Pants Place bundles an unmodified, minified build of ZenFS for its IndexedDB-backed `C:\` drive. ZenFS is used as a separate library under the LGPL's web-application exception: the site is accessed over a network, and its Corresponding Source is available at the repository links above (the library itself is not modified). License and copying terms: https://github.com/zen-fs/core/blob/main/COPYING.md and https://www.gnu.org/licenses/lgpl-3.0.html.
 
 ## Icons
 

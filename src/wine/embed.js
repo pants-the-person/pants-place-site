@@ -33,6 +33,136 @@
     return '';
   }
 
+  // ------------------------------------------------------------- shared C:\
+  // The parent document owns the persistent ZenFS C:\ drive. This iframe asks
+  // for a snapshot when an app launches and journals guest writes back through
+  // the same RPC channel, so Explorer, Notepad, Paint and every Wine program
+  // see one filesystem instead of separate copies.
+  let fsSeq = 0;
+  const fsPending = new Map();
+
+  function fsRequest(type, payload) {
+    return new Promise((resolve, reject) => {
+      if (sameWindow) {
+        reject(new Error('The shared C: drive is unavailable in this window.'));
+        return;
+      }
+      const id = ++fsSeq;
+      const timer = setTimeout(() => {
+        fsPending.delete(id);
+        reject(new Error('The shared C: drive did not respond.'));
+      }, 60000);
+      fsPending.set(id, { resolve, reject, timer });
+      try {
+        host.postMessage(Object.assign({ type, id }, payload || {}), location.origin);
+      } catch (error) {
+        clearTimeout(timer);
+        fsPending.delete(id);
+        reject(error);
+      }
+    });
+  }
+
+  function fsResult(data) {
+    const pending = fsPending.get(data.id);
+    if (!pending) return;
+    fsPending.delete(data.id);
+    clearTimeout(pending.timer);
+    if (data.error) pending.reject(new Error(String(data.error)));
+    else pending.resolve(data);
+  }
+
+  function mountRecords(vfs, records) {
+    let files = 0;
+    for (const record of records || []) {
+      if (!record || typeof record.path !== 'string') continue;
+      const path = record.path.toLowerCase();
+      if (!/^c:\\/.test(path)) continue;
+      // Wine's own system files and the app's mounted data already exist at
+      // this point. They win over the cosmetic Pants Place seed so a fake
+      // WIN.INI cannot change how a program boots. User-created paths are new
+      // and therefore mount normally.
+      if (vfs.files.has(path)) continue;
+      if (record.kind === 'dir') {
+        vfs.dirs.add(path);
+        if (vfs.ensureParentDirs) vfs.ensureParentDirs(path);
+      } else if (record.kind === 'file' && record.data) {
+        const data = record.data instanceof Uint8Array
+          ? record.data
+          : new Uint8Array(record.data);
+        vfs.files.set(path, { data, attrs: (record.attrs >>> 0) || 0x20 });
+        if (vfs.ensureParentDirs) vfs.ensureParentDirs(path);
+        files++;
+      }
+    }
+    return files;
+  }
+
+  window.pantsFS = {
+    request: fsRequest,
+    async snapshot() {
+      return fsRequest('wine:fs-snapshot');
+    },
+    async read(path) {
+      const result = await fsRequest('wine:fs-read', { path });
+      if (!result.data) return null;
+      return result.data instanceof Uint8Array ? result.data : new Uint8Array(result.data);
+    },
+    async mount(vfs) {
+      const snapshot = await fsRequest('wine:fs-snapshot');
+      const records = snapshot.records || [];
+      const files = mountRecords(vfs, records);
+      return {
+        files,
+        entries: records.length,
+        warnings: snapshot.warnings || [],
+      };
+    },
+    store: {
+      kind: 'pants-place',
+      async list() {
+        const snapshot = await fsRequest('wine:fs-snapshot');
+        return (snapshot.records || []).map((record) => ({
+          path: record.path,
+          kind: record.kind,
+          name: record.name,
+          attrs: record.attrs || 0,
+          size: record.size || (record.data ? record.data.length : 0),
+        }));
+      },
+      async read(path) {
+        const result = await fsRequest('wine:fs-read', { path });
+        return result.data || null;
+      },
+      async writeBatch(records) {
+        const result = await fsRequest('wine:fs-write', { records: records || [] });
+        return { written: result.written || 0, removed: result.removed || 0 };
+      },
+      async remove(path) {
+        await fsRequest('wine:fs-write', {
+          records: [{ path, kind: 'whiteout' }],
+        });
+      },
+    },
+  };
+
+  function flushSharedFiles() {
+    const shell = window.wineShell;
+    const apps = (shell && shell.runningApps) || [];
+    for (const running of apps) {
+      const overlay = running && running.wine && running.wine._pantsFsOverlay;
+      if (!overlay) continue;
+      try {
+        overlay.flush();
+      } catch {
+        /* the page is going away */
+      }
+    }
+  }
+
+  window.addEventListener('pagehide', flushSharedFiles);
+  window.addEventListener('beforeunload', flushSharedFiles);
+
   let ready = false;
   let lastStatus = '';
   let lastRunning = false;
@@ -300,13 +430,41 @@
     }
   }
 
+  async function launchStoredPath(data) {
+    const path = String((data && data.path) || '');
+    if (!path) return;
+    if (!window.pantsFS) {
+      publishError('The shared C: drive is not available.');
+      return;
+    }
+    try {
+      const label = String((data && data.name) || '').trim() ||
+        path.split('\\').pop() || 'program.exe';
+      post('wine:status', { text: `Reading ${label} from C:...` });
+      const bytes = await window.pantsFS.read(path);
+      if (!bytes || !bytes.length) {
+        throw new Error(`Cannot read ${path} from the shared C: drive.`);
+      }
+      const file = new File([bytes], label, { type: 'application/octet-stream' });
+      await launchFiles([file]);
+    } catch (error) {
+      publishError(error && error.message ? error.message : error);
+    }
+  }
+
   window.addEventListener('message', (event) => {
     if (event.origin !== location.origin) return;
     if (event.source !== host) return;
     const data = event.data;
     if (!data || typeof data !== 'object') return;
+    if (typeof data.type === 'string' && data.type.startsWith('wine:fs-') && data.id != null) {
+      fsResult(data);
+      return;
+    }
     if (data.type === 'wine:drop') {
       void launchFiles(data.files);
+    } else if (data.type === 'wine:launch-path') {
+      void launchStoredPath(data);
     } else if (data.type === 'wine:menu-command') {
       void handleMenuCommand(data);
     }

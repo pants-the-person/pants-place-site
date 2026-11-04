@@ -1,8 +1,18 @@
-import { useMemo, useRef, useState } from 'preact/hooks';
-import { fileSystem } from '../../kernel/content';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import {
+  fileSystem,
+  createFolder,
+  createTextFile,
+  readTextFile,
+  readFileBytes,
+  uploadFiles,
+  renameNode,
+  deleteNode,
+  storageEstimate,
+} from '../../kernel/content';
 import { findNode, type VfsFile, type VfsFolder } from '../../kernel/vfs';
 import { openApp } from '../../kernel/windows';
-import { openWineDrop } from '../../kernel/wine';
+import { openWineDrop, openWinePath } from '../../kernel/wine';
 import { showDialog } from '../../kernel/dialogs';
 import { playSound } from '../../kernel/audio';
 import { playTrackById } from '../../kernel/player';
@@ -10,7 +20,7 @@ import type { AppProps } from '../../kernel/types';
 
 const WINE_EXTENSIONS = /\.(exe|zip|iso|cue|bin)$/i;
 
-const folders = ['My Documents', 'Media', 'Program Files', 'Windows'];
+const folders = ['My Documents', 'Media', 'Downloads', 'Desktop', 'Program Files', 'Windows', 'Temp'];
 
 export default function Explorer({ appProps, api }: AppProps) {
   const initialPath = (appProps.path as string[] | undefined) ?? [];
@@ -21,7 +31,9 @@ export default function Explorer({ appProps, api }: AppProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<'icons' | 'details'>('icons');
   const [dragging, setDragging] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [storageLabel, setStorageLabel] = useState('Local filesystem');
+  const wineInputRef = useRef<HTMLInputElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const folder = useMemo(() => {
     const node = findNode(fileSystem.value, path);
@@ -30,6 +42,12 @@ export default function Explorer({ appProps, api }: AppProps) {
 
   const entries = folder.type === 'folder' ? folder.children : [];
   const coarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+  const selectedEntry = entries.find((entry) => entry.name === selected) || null;
+  const parentPath = path.length ? `c:\\${path.join('\\')}` : 'c:\\';
+
+  useEffect(() => {
+    void updateStorageLabel();
+  }, []);
 
   const address = path.length ? `C:\\${path.join('\\')}` : 'C:\\';
 
@@ -70,26 +88,141 @@ export default function Explorer({ appProps, api }: AppProps) {
     openWineDrop(supported, supported[0].name);
   }
 
+  async function importFiles(files: File[]) {
+    if (!files.length) return;
+    try {
+      await uploadFiles(parentPath, files);
+      playSound('click');
+      api.notify(`${files.length} file${files.length === 1 ? '' : 's'} copied to ${address}`);
+      void updateStorageLabel();
+    } catch (error) {
+      void showDialog({
+        title: 'Copy File',
+        message: 'The files could not be copied.',
+        detail: error instanceof Error ? error.message : String(error),
+        kind: 'error',
+        icon: '/icons/folder.svg',
+      });
+    }
+  }
+
+  async function updateStorageLabel() {
+    const estimate = await storageEstimate();
+    if (!estimate?.usage) {
+      setStorageLabel('IndexedDB filesystem');
+      return;
+    }
+    const mb = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    setStorageLabel(`${mb(estimate.usage)} used${estimate.quota ? ` of ${mb(estimate.quota)}` : ''}`);
+  }
+
   function drop(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();
     setDragging(false);
     const files = Array.from(event.dataTransfer?.files ?? []);
-    if (files.length) runDropped(files);
+    if (!files.length) return;
+    if (files.some((file) => WINE_EXTENSIONS.test(file.name))) runDropped(files);
+    else void importFiles(files);
   }
 
-  function pickFiles(event: Event) {
+  function pickWineFiles(event: Event) {
     const input = event.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
     input.value = '';
     if (files.length) runDropped(files);
   }
 
-  function openEntry(entry: VfsFolder | VfsFile) {
+  function pickUploadFiles(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+    if (files.length) void importFiles(files);
+  }
+
+  async function promptName(title: string, label: string, value: string) {
+    const result = await showDialog({
+      title,
+      message: label,
+      icon: '/icons/folder.svg',
+      input: { value, label: 'Name:' },
+      buttons: [
+        { id: 'ok', label: 'OK', default: true },
+        { id: 'cancel', label: 'Cancel' },
+      ],
+    });
+    if (result === 'cancel') return null;
+    const name = result.trim();
+    return name || null;
+  }
+
+  async function newFolder() {
+    const name = await promptName('New Folder', 'Create a new folder in this location.', 'New Folder');
+    if (!name) return;
+    try {
+      await createFolder(parentPath, name);
+      playSound('click');
+      void updateStorageLabel();
+    } catch (error) {
+      void showDialog({ title: 'New Folder', message: 'The folder could not be created.', detail: String(error), kind: 'error', icon: '/icons/folder.svg' });
+    }
+  }
+
+  async function newTextFile() {
+    const name = await promptName('New Text Document', 'Create a new text document in this location.', 'New Text Document.txt');
+    if (!name) return;
+    try {
+      await createTextFile(parentPath, name, '');
+      playSound('click');
+      void updateStorageLabel();
+    } catch (error) {
+      void showDialog({ title: 'New Text Document', message: 'The file could not be created.', detail: String(error), kind: 'error', icon: '/icons/notepad.svg' });
+    }
+  }
+
+  async function renameSelected() {
+    if (!selectedEntry) return;
+    const name = await promptName('Rename', `Rename "${selectedEntry.name}" to:`, selectedEntry.name);
+    if (!name || name === selectedEntry.name) return;
+    try {
+      await renameNode(selectedEntry.path || `${parentPath}\\${selectedEntry.name}`, name);
+      setSelected(name);
+      playSound('click');
+      void updateStorageLabel();
+    } catch (error) {
+      void showDialog({ title: 'Rename', message: 'The item could not be renamed.', detail: String(error), kind: 'error', icon: '/icons/folder.svg' });
+    }
+  }
+
+  async function deleteSelected() {
+    if (!selectedEntry) return;
+    const result = await showDialog({
+      title: 'Confirm File Delete',
+      message: `Are you sure you want to delete "${selectedEntry.name}"?`,
+      kind: 'warning',
+      icon: '/icons/recycle-empty.svg',
+      buttons: [
+        { id: 'yes', label: 'Yes', default: true },
+        { id: 'no', label: 'No' },
+      ],
+    });
+    if (result !== 'yes') return;
+    try {
+      await deleteNode(selectedEntry.path || `${parentPath}\\${selectedEntry.name}`);
+      setSelected(null);
+      playSound('click');
+      void updateStorageLabel();
+    } catch (error) {
+      void showDialog({ title: 'Delete', message: 'The item could not be deleted.', detail: String(error), kind: 'error', icon: '/icons/recycle-empty.svg' });
+    }
+  }
+
+  async function openEntry(entry: VfsFolder | VfsFile) {
     if (entry.type === 'folder') {
       navigate([...path, entry.name]);
       return;
     }
+    const entryPath = entry.path || `${parentPath}\\${entry.name}`;
     if (entry.name.toLowerCase().endsWith('.lnk')) {
       if (entry.openWith) openApp(entry.openWith, entry.props);
       return;
@@ -99,16 +232,31 @@ export default function Explorer({ appProps, api }: AppProps) {
       if (entry.props?.mediaId) playTrackById(String(entry.props.mediaId));
       return;
     }
-    if (entry.openWith === 'notepad') {
-      openApp('notepad', entry.props);
+    if (entry.ext === 'exe') {
+      openWinePath(entryPath, entry.name);
       return;
     }
-    if (entry.ext === 'txt' || entry.ext === 'md') {
-      openApp('notepad', {
-        title: `${entry.name} - Notepad`,
-        filename: entry.name,
-        body: entry.content ?? '',
-      });
+    if (entry.ext === 'zip' || entry.ext === 'iso' || entry.ext === 'cue') {
+      try {
+        const bytes = await readFileBytes(entryPath);
+        openWineDrop([new File([bytes], entry.name)], entry.name);
+      } catch (error) {
+        void showDialog({ title: 'Wine-Assembly', message: 'The file could not be read.', detail: String(error), kind: 'error', icon: '/icons/wine.svg' });
+      }
+      return;
+    }
+    if (entry.openWith === 'notepad' || entry.ext === 'txt' || entry.ext === 'md') {
+      try {
+        const body = entry.content ?? (await readTextFile(entryPath));
+        openApp('notepad', {
+          title: `${entry.name} - Notepad`,
+          filename: entry.name,
+          path: entryPath,
+          body,
+        });
+      } catch (error) {
+        void showDialog({ title: 'Notepad', message: 'The file could not be opened.', detail: String(error), kind: 'error', icon: '/icons/notepad.svg' });
+      }
       return;
     }
     void showDialog({
@@ -164,16 +312,40 @@ export default function Explorer({ appProps, api }: AppProps) {
         <button onClick={() => setView(view === 'icons' ? 'details' : 'icons')}>
           <img src="/icons/folder.svg" alt="" /> Views
         </button>
-        <button onClick={() => fileInputRef.current?.click()} title="Run a Windows program, ZIP or ISO with Wine-Assembly">
+        <div class="toolbar-separator" />
+        <button onClick={() => void newFolder()}>
+          <img src="/icons/folder.svg" alt="" /> New Folder
+        </button>
+        <button onClick={() => void newTextFile()}>
+          <img src="/icons/notepad.svg" alt="" /> New Text
+        </button>
+        <button onClick={() => uploadInputRef.current?.click()}>
+          <img src="/icons/folder-open.svg" alt="" /> Upload
+        </button>
+        <button onClick={() => void renameSelected()} disabled={!selectedEntry}>
+          <img src="/icons/file-text.svg" alt="" /> Rename
+        </button>
+        <button onClick={() => void deleteSelected()} disabled={!selectedEntry}>
+          <img src="/icons/recycle-empty.svg" alt="" /> Delete
+        </button>
+        <div class="toolbar-separator" />
+        <button onClick={() => wineInputRef.current?.click()} title="Run a Windows program, ZIP or ISO with Wine-Assembly">
           <img src="/icons/wine.svg" alt="" /> Run with Wine...
         </button>
         <input
-          ref={fileInputRef}
+          ref={wineInputRef}
           type="file"
           multiple
           accept=".exe,.zip,.iso,.cue,.bin"
           style={{ display: 'none' }}
-          onChange={pickFiles}
+          onChange={pickWineFiles}
+        />
+        <input
+          ref={uploadInputRef}
+          type="file"
+          multiple
+          style={{ display: 'none' }}
+          onChange={pickUploadFiles}
         />
       </div>
 
@@ -333,7 +505,7 @@ export default function Explorer({ appProps, api }: AppProps) {
           {network ? `${networkItems.length} object(s)` : recycle ? '0 object(s)' : `${entries.length} object(s)`}
         </div>
         <div class="status-bar-field">{selected ?? ''}</div>
-        <div class="status-bar-field">My Computer</div>
+        <div class="status-bar-field">{recycle ? 'Recycle Bin' : storageLabel}</div>
       </div>
     </div>
   );

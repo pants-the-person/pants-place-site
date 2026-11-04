@@ -1,29 +1,61 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { documents } from '../../kernel/content';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { readTextFile, writeTextFile, createTextFile } from '../../kernel/content';
 import { showDialog } from '../../kernel/dialogs';
 import { openApp } from '../../kernel/windows';
 import type { AppProps } from '../../kernel/types';
 
 export default function Notepad({ appProps, api }: AppProps) {
-  const filename = String(appProps.filename ?? 'Untitled.txt');
-  const title = String(appProps.title ?? 'Untitled');
-  const initial = String(appProps.body ?? localStorage.getItem(`pp98:note:${filename}`) ?? '');
-  const [text, setText] = useState(initial);
+  const initialFilename = String(appProps.filename ?? 'Untitled.txt');
+  const initialTitle = String(appProps.title ?? 'Untitled');
+  const [filename, setFilename] = useState(initialFilename);
+  const [title, setTitle] = useState(initialTitle);
+  const [filePath, setFilePath] = useState(String(appProps.path ?? ''));
+  const [text, setText] = useState(String(appProps.body ?? ''));
   const [dirty, setDirty] = useState(false);
   const [wrap, setWrap] = useState(false);
   const [caret, setCaret] = useState({ line: 1, col: 1 });
+  const [saved, setSaved] = useState(Boolean(appProps.path));
   const areaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     api.setTitle(`${dirty ? '*' : ''}${title} - Notepad`);
   }, [dirty, title]);
 
-  const saved = useMemo(() => localStorage.getItem(`pp98:note:${filename}`), [filename]);
+  useEffect(() => {
+    if (appProps.body !== undefined || !filePath) return;
+    let alive = true;
+    void readTextFile(filePath)
+      .then((body) => {
+        if (!alive) return;
+        setText(body);
+        setDirty(false);
+        setSaved(true);
+      })
+      .catch(() => {
+        if (alive) setFilePath('');
+      });
+    return () => {
+      alive = false;
+    };
+  }, [filePath, appProps.body]);
 
-  function save() {
-    localStorage.setItem(`pp98:note:${filename}`, text);
-    setDirty(false);
-    api.notify(`Saved ${filename}`);
+  async function save() {
+    const nextPath = filePath || `c:\\My Documents\\${filename}`;
+    try {
+      await writeTextFile(nextPath, text);
+      setFilePath(nextPath);
+      setSaved(true);
+      setDirty(false);
+      api.notify(`Saved ${nextPath}`);
+    } catch (error) {
+      void showDialog({
+        title: 'Save',
+        message: 'The document could not be saved.',
+        detail: error instanceof Error ? error.message : String(error),
+        kind: 'error',
+        icon: '/icons/notepad.svg',
+      });
+    }
   }
 
   async function saveAs() {
@@ -38,9 +70,29 @@ export default function Notepad({ appProps, api }: AppProps) {
       ],
     });
     if (name === 'cancel' || !name.trim()) return;
-    localStorage.setItem(`pp98:note:${name}`, text);
-    setDirty(false);
-    api.notify(`Saved ${name}`);
+    const clean = name.trim().replace(/[\\/:*?"<>|]/g, '_');
+    const nextPath = `c:\\My Documents\\${clean}`;
+    try {
+      if (filePath) {
+        await writeTextFile(nextPath, text);
+      } else {
+        await createTextFile('c:\\My Documents', clean, text);
+      }
+      setFilename(clean);
+      setTitle(clean);
+      setFilePath(nextPath);
+      setSaved(true);
+      setDirty(false);
+      api.notify(`Saved ${nextPath}`);
+    } catch (error) {
+      void showDialog({
+        title: 'Save As',
+        message: 'The document could not be saved.',
+        detail: error instanceof Error ? error.message : String(error),
+        kind: 'error',
+        icon: '/icons/notepad.svg',
+      });
+    }
   }
 
   async function open() {
@@ -54,21 +106,25 @@ export default function Notepad({ appProps, api }: AppProps) {
         { id: 'cancel', label: 'Cancel' },
       ],
     });
-    if (name === 'cancel') return;
-    const needle = name.trim().toLowerCase();
-    const doc = documents.value.find(
-      (d) => d.filename.toLowerCase() === needle || d.title.toLowerCase() === needle,
-    );
-    if (!doc) {
+    if (name === 'cancel' || !name.trim()) return;
+    const target = `c:\\My Documents\\${name.trim().replace(/[\\/:*?"<>|]/g, '_')}`;
+    try {
+      const body = await readTextFile(target);
+      openApp('notepad', {
+        title: `${name.trim()} - Notepad`,
+        filename: name.trim(),
+        path: target,
+        body,
+      });
+    } catch (error) {
       void showDialog({
         title: 'Open',
         message: `Cannot find the file "${name}".`,
+        detail: error instanceof Error ? error.message : String(error),
         kind: 'error',
         icon: '/icons/notepad.svg',
       });
-      return;
     }
-    openApp('notepad', { title: doc.title, body: doc.body, filename: doc.filename });
   }
 
   function updateCaret() {
@@ -96,16 +152,16 @@ export default function Notepad({ appProps, api }: AppProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div class="menu-bar">
-        <button onClick={save}>File</button>
+        <button onClick={() => void save()}>File</button>
         <button onClick={() => void showDialog({ title: 'Edit', message: 'Use the keyboard, like it is 1998.', icon: '/icons/notepad.svg' })}>Edit</button>
         <button onClick={() => setWrap((w) => !w)}>Search</button>
         <button onClick={() => openApp('help')}>Help</button>
       </div>
       <div class="toolbar">
-        <button onClick={() => { setText(''); setDirty(true); }}>New</button>
-        <button onClick={open}>Open</button>
-        <button onClick={save}>Save</button>
-        <button onClick={saveAs}>Save As</button>
+        <button onClick={() => { setText(''); setTitle('Untitled'); setDirty(true); setFilePath(''); setSaved(false); }}>New</button>
+        <button onClick={() => void open()}>Open</button>
+        <button onClick={() => void save()}>Save</button>
+        <button onClick={() => void saveAs()}>Save As</button>
         <button onClick={insertDate}>Date</button>
         <button class={wrap ? 'active' : ''} onClick={() => setWrap((w) => !w)}>Wrap</button>
       </div>
@@ -127,7 +183,7 @@ export default function Notepad({ appProps, api }: AppProps) {
           }
           if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
             event.preventDefault();
-            save();
+            void save();
           }
         }}
         spellcheck={false}
@@ -150,7 +206,7 @@ export default function Notepad({ appProps, api }: AppProps) {
       />
       <div class="status-bar">
         <div class="status-bar-field">Ln {caret.line}, Col {caret.col}</div>
-        <div class="status-bar-field">{saved ? 'Saved locally' : 'Not saved'}</div>
+        <div class="status-bar-field">{filePath ? (saved ? `Saved to ${filePath}` : 'Modified') : 'Not saved'}</div>
         <div class="status-bar-field">{text.length} chars</div>
       </div>
     </div>

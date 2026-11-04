@@ -35,6 +35,17 @@ export function openWineDrop(files: File[], name?: string) {
   return true;
 }
 
+export function openWinePath(path: string, name?: string) {
+  if (!path) return false;
+  const label = name || path.split('\\').pop() || 'Stored program';
+  openApp('wine-drop', {
+    launchPath: path,
+    name: label,
+    title: `Wine-Assembly — ${label}`,
+  });
+  return true;
+}
+
 export function takeWineDrop(token: string | undefined | null) {
   if (!token) return [];
   return pendingDrops.get(token) || [];

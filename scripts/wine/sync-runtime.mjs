@@ -99,6 +99,71 @@ function patchRenderer() {
   fs.writeFileSync(rendererPath, renderer);
 }
 
+function patchBrowserShell() {
+  const shellPath = path.join(publicWineRoot, 'lib/browser-shell.js');
+  let shell = fs.readFileSync(shellPath, 'utf8');
+  if (shell.includes('PANTS_SHARED_FS')) return;
+
+  const launchAnchor = '      if (app.exeBytes) {\n        const vfs = wine._helpCtx && wine._helpCtx.vfs;';
+  if (!shell.includes(launchAnchor)) {
+    throw new Error('Wine browser-shell patch: app.exeBytes anchor not found');
+  }
+
+  const mount = `      // PANTS_SHARED_FS: the parent page owns the persistent C:\\ drive.
+      // Mount its snapshot before the EXE is loaded, then journal guest writes
+      // back through window.pantsFS so Explorer and Wine share one filesystem.
+      if (window.pantsFS && window.VfsOverlay && wine._helpCtx && wine._helpCtx.vfs) {
+        try {
+          const sharedVfs = wine._helpCtx.vfs;
+          const shared = await window.pantsFS.mount(sharedVfs);
+          wine._pantsFsOverlay = window.VfsOverlay.attach(sharedVfs, {
+            store: window.pantsFS.store,
+            drives: ['c'],
+            log: message => { log.textContent += \`\${message}\\n\`; },
+          });
+          wine._pantsFsFlushTimer = setInterval(() => {
+            if (!wine._pantsFsOverlay) return;
+            wine._pantsFsOverlay.flush().then(result => {
+              if (result && result.written) {
+                log.textContent += \`Shared C: saved \${result.written} file(s)\\n\`;
+              }
+            }).catch(() => {});
+          }, 5000);
+          log.textContent += \`Mounted shared C: (\${shared.files || 0} files)\\n\`;
+          for (const warning of shared.warnings || []) log.textContent += \`\${warning}\\n\`;
+        } catch (error) {
+          log.textContent += \`Shared C: unavailable: \${(error && error.message) || error}\\n\`;
+        }
+      }
+
+`;
+
+  shell = shell.replace(launchAnchor, mount + launchAnchor);
+
+  const stopAnchor = '    function stopRunningApp(running, repaint) {\n' +
+    '      if (!running || !running.wine) return;\n' +
+    '      if (running.wine._vfsPersistence) running.wine._vfsPersistence.flush();';
+  if (!shell.includes(stopAnchor)) {
+    throw new Error('Wine browser-shell patch: stopRunningApp anchor not found');
+  }
+
+  const stop = `${stopAnchor}
+      // PANTS_SHARED_FS: stop the periodic writer and flush the final batch
+      // before the guest filesystem is torn down.
+      if (running.wine._pantsFsFlushTimer) {
+        clearInterval(running.wine._pantsFsFlushTimer);
+        running.wine._pantsFsFlushTimer = null;
+      }
+      if (running.wine._pantsFsOverlay) {
+        const sharedOverlay = running.wine._pantsFsOverlay;
+        running.wine._pantsFsOverlay = null;
+        sharedOverlay.detach().catch(() => {});
+      }`;
+
+  shell = shell.replace(stopAnchor, stop);
+  fs.writeFileSync(shellPath, shell);
+}
+
 export function syncRuntime() {
   fs.mkdirSync(publicWineRoot, { recursive: true });
 
@@ -108,6 +173,7 @@ export function syncRuntime() {
 
   copyTree(path.join(wineRoot, 'lib'), path.join(publicWineRoot, 'lib'));
   patchRenderer();
+  patchBrowserShell();
   copyTree(path.join(wineRoot, 'fonts'), path.join(publicWineRoot, 'fonts'));
   copyTree(path.join(wineRoot, 'icons'), path.join(publicWineRoot, 'icons'));
   copyTree(path.join(wineRoot, 'src'), path.join(publicWineRoot, 'src'), (src, entry) => {

@@ -15,8 +15,14 @@ export default defineConfig({
     }),
   ],
   vite: {
+    // ZenFS/memium registers struct types by class name at runtime. Minified
+    // class names make that registry miss and break the IndexedDB backend.
+    esbuild: { keepNames: true },
     build: {
       target: 'es2022',
+      rolldownOptions: {
+        output: { keepNames: true },
+      },
       // 98.css contains a legacy `@media (not(hover))` block that Lightning CSS rejects.
       // Keeping CSS unminified is cheaper than forking the stylesheet for a few KB.
       cssMinify: false,

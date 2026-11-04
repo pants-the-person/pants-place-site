@@ -43,15 +43,23 @@ const runtimeTargets = [
   path.join(publicWineRoot, 'embed.css'),
   path.join(publicWineRoot, 'index.html'),
 ];
+const sharedFsPatched = (() => {
+  try {
+    return fs.readFileSync(path.join(publicWineRoot, 'lib/browser-shell.js'), 'utf8')
+      .includes('PANTS_SHARED_FS');
+  } catch {
+    return false;
+  }
+})();
 const runtimeChanged =
   fs.existsSync(path.join(publicWineRoot, 'index.html')) &&
-  runtimeSources.some((source, index) => {
+  (runtimeSources.some((source, index) => {
     try {
       return fs.statSync(source).mtimeMs > fs.statSync(runtimeTargets[index]).mtimeMs + 1;
     } catch {
       return true;
     }
-  });
+  }) || !sharedFsPatched);
 if (runtimeChanged) {
   console.log('Refreshing Wine-Assembly runtime files...');
   syncRuntime();

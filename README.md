@@ -10,6 +10,7 @@ A functional Windows 98-style desktop that runs entirely in the browser.
 - **UltimateShades**, a friend-site overclocking shrine alongside Kylie's Cyber Sanctuary.
 - **Explorer, Notepad, Paint, Minesweeper, Calculator, Display Properties and Help**.
 - **Wine-Assembly** running 41 real Windows 98 programs and games from mirrored `.exe` files in a WebAssembly x86 emulator. Open them from **Start → Programs → Accessories**, **Games**, or **System Tools**.
+- **Persistent `C:\` drive** shared by Explorer, Notepad, Paint and every Wine program. It is backed by ZenFS on IndexedDB, so files survive reloads.
 - **Explorer drag-and-drop / Open with Wine** for `.exe`, `.zip`, `.iso` and `.cue` media. Dropped files stay in the browser.
 - Boot sequence, shutdown screen, BSOD easter egg, CRT filter, colour schemes (including Hot Dog Stand), wallpapers and system sounds.
 
@@ -35,6 +36,19 @@ The shell is app-agnostic. To add a program:
 3. Optionally add a `desktopShortcuts` entry or let it appear in the Start menu via `startMenu`.
 
 Windows, taskbar buttons, focus, dragging and resizing are handled by the shell. Apps only render their body and call `api.close()`, `api.setTitle()`, `api.openApp()` or `api.dialog()`.
+
+## Shared C: filesystem
+
+`C:\` is a real browser-persisted filesystem, not a mock tree. Explorer, Notepad, Paint and Wine-Assembly all read and write the same files.
+
+- Implementation: `src/kernel/fs-store.ts` mounts an IndexedDB backend at `/c` with ZenFS (`@zenfs/core` + `@zenfs/dom`, store `pants-place-c`). Paths are mapped between `C:\...` and ZenFS `/c/...` with a case-insensitive resolver, matching Windows behaviour.
+- First run seeds `My Documents`, `Media`, `Downloads`, `Desktop`, `Program Files`, `Windows` and `Temp`, including the documents in `src/content/documents/` and the generated media playlist. A marker in `C:\.pants\` stops the seed from running twice.
+- Metadata that is not part of a real file (Explorer `openWith`, icons, media ids, shortcut props) lives in `C:\.pants\meta.json`.
+- Existing Notepad notes in `localStorage` (`pp98:note:*`) are migrated into `C:\My Documents` once.
+- Wine integration: when a Wine app starts, `src/kernel/fs-bridge.ts` answers a snapshot request from the iframe, mounts those files into the guest's `VirtualFS`, and attaches `VfsOverlay`. Guest writes are journaled back to ZenFS every few seconds and when the app closes. `WINDOWS\TEMP`, `TEMP` and `WINDOWS\RECENT` are ignored, and a single Wine file is capped at 64 MB (256 MB total) to keep snapshot messages bounded.
+- The `wine:fs-*` RPC channel is same-origin and only accepts messages from the Wine iframe. No file content leaves the browser.
+
+ZenFS is LGPL-3.0-or-later; attribution and license links are in `THIRD_PARTY_NOTICES.md`. The build sets `keepNames` in `astro.config.ts` because ZenFS/memium registers struct types by class name at runtime.
 
 ## Media
 

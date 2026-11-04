@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { showDialog } from '../../kernel/dialogs';
+import { writeBinaryFile } from '../../kernel/content';
 import type { AppProps } from '../../kernel/types';
 
 const COLORS = [
@@ -156,14 +157,47 @@ export default function Paint({ api }: AppProps) {
     snapshot.current = null;
   }
 
-  function save() {
+  async function saveTo(name: string) {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const link = document.createElement('a');
-    link.download = 'pants-paint.png';
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-    api.notify('Saved pants-paint.png to your downloads.');
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) {
+      api.notify('Paint could not encode the image.');
+      return;
+    }
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    try {
+      await writeBinaryFile(`c:\\My Documents\\${name.replace(/[\\/:*?"<>|]/g, '_')}`, bytes);
+      api.notify(`Saved C:\\My Documents\\${name}`);
+    } catch (error) {
+      void showDialog({
+        title: 'Save',
+        message: 'Paint could not save the image.',
+        detail: error instanceof Error ? error.message : String(error),
+        kind: 'error',
+        icon: '/icons/paint.svg',
+      });
+    }
+  }
+
+  function save() {
+    void saveTo('pants-paint.png');
+  }
+
+  async function saveAs() {
+    const name = await showDialog({
+      title: 'Save As',
+      message: 'Save this picture in C:\\My Documents as:',
+      icon: '/icons/paint.svg',
+      input: { value: 'pants-paint.png', label: 'File name:' },
+      buttons: [
+        { id: 'ok', label: 'Save', default: true },
+        { id: 'cancel', label: 'Cancel' },
+      ],
+    });
+    if (name === 'cancel' || !name.trim()) return;
+    const clean = /\.png$/i.test(name.trim()) ? name.trim() : `${name.trim()}.png`;
+    await saveTo(clean);
   }
 
   function clear() {
@@ -199,6 +233,7 @@ export default function Paint({ api }: AppProps) {
         </select>
         <button onClick={clear}>Clear</button>
         <button onClick={save}>Save</button>
+        <button onClick={() => void saveAs()}>Save As</button>
       </div>
       <div class="paint-palette">
         <div class="paint-current" style={{ background: color }} title="Current color" />
