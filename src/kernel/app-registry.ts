@@ -1,6 +1,6 @@
 import { registerApps } from './windows';
 import type { AppDefinition } from './types';
-import { wineApps, wineAppsById } from '../generated/wine-apps';
+import { wineApps } from '../generated/wine-apps';
 
 export const apps: AppDefinition[] = [
   {
@@ -149,19 +149,6 @@ export const apps: AppDefinition[] = [
 
 apps.push(
   {
-    id: 'wine-launcher',
-    title: 'Wine-Assembly',
-    icon: '/icons/wine.svg',
-    category: 'wine',
-    description: 'Run real Windows 98 programs and games in a browser.',
-    defaultSize: { w: 760, h: 560 },
-    minSize: { w: 560, h: 380 },
-    singleton: true,
-    component: () => import('../components/apps/WineLauncher'),
-    desktop: true,
-    startMenu: 'programs',
-  },
-  {
     id: 'wine-drop',
     title: 'Wine-Assembly',
     icon: '/icons/wine.svg',
@@ -211,29 +198,7 @@ export const desktopShortcuts: DesktopShortcut[] = [
   { id: 'internet-explorer', title: 'Internet Explorer', icon: '/icons/ie.svg', appId: 'ie' },
   { id: 'winamp', title: 'Winamp', icon: '/icons/winamp.svg', appId: 'winamp' },
   { id: 'ms-dos', title: 'MS-DOS Prompt', icon: '/icons/dos.svg', appId: 'terminal' },
-  { id: 'wine-launcher', title: 'Wine-Assembly', icon: '/icons/wine.svg', appId: 'wine-launcher' },
   { id: 'notepad', title: 'Notepad', icon: '/icons/notepad.svg', appId: 'notepad' },
   { id: 'minesweeper', title: 'Minesweeper', icon: '/icons/mine.svg', appId: 'minesweeper' },
-  {
-    id: 'wine-pinball',
-    title: '3D Pinball',
-    icon: wineAppsById.pinball?.icon || '/icons/wine.svg',
-    appId: 'wine-pinball',
-    props: { wineAppId: 'pinball', title: '3D Pinball' },
-  },
-  {
-    id: 'wine-sol',
-    title: 'Solitaire',
-    icon: wineAppsById.sol?.icon || '/icons/wine.svg',
-    appId: 'wine-sol',
-    props: { wineAppId: 'sol', title: 'Solitaire' },
-  },
-  {
-    id: 'wine-ski32',
-    title: 'SkiFree',
-    icon: wineAppsById.ski32?.icon || '/icons/wine.svg',
-    appId: 'wine-ski32',
-    props: { wineAppId: 'ski32', title: 'SkiFree' },
-  },
   { id: 'recycle-bin', title: 'Recycle Bin', icon: '/icons/recycle-empty.svg', appId: 'computer', props: { recycle: true } },
 ];

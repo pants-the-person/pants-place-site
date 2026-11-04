@@ -7,7 +7,7 @@ A functional Windows 98-style desktop that runs entirely in the browser.
 - **Winamp 2.8** clone with playlist, 10-band EQ and spectrum analyser. Plays **MIDI** through a General MIDI SoundFont and **OGG** through the Web Audio API.
 - **Internet Explorer 4** clone browsing a fake 1998 internet at `/web/` with news, a devlog, guestbook, webring, downloads and an AltaVista-style search.
 - **Explorer, Notepad, Paint, Minesweeper, Calculator, Display Properties and Help**.
-- **Wine-Assembly** running 41 real Windows 98 programs and games from mirrored `.exe` files in a WebAssembly x86 emulator. Open it from the desktop, Start menu or `Program Files\Wine-Assembly`.
+- **Wine-Assembly** running 41 real Windows 98 programs and games from mirrored `.exe` files in a WebAssembly x86 emulator. Open them from **Start → Programs → Accessories**, **Games**, or **System Tools**.
 - **Explorer drag-and-drop / Open with Wine** for `.exe`, `.zip`, `.iso` and `.cue` media. Dropped files stay in the browser.
 - Boot sequence, shutdown screen, BSOD easter egg, CRT filter, colour schemes (including Hot Dog Stand), wallpapers and system sounds.
 
@@ -59,6 +59,8 @@ public/v86/
 ## Wine-Assembly
 
 Wine-Assembly is a separate MIT-licensed project that runs original Windows `.exe` files on an x86 interpreter and Win32 implementation written in WebAssembly. Pants Place mirrors its runtime and the programs from its desktop app registry into a same-origin iframe at `/wine/`.
+
+There is no separate Wine-Assembly launcher. Every mirrored program is listed under **Start → Programs** in Accessories, Games, or System Tools. Programs with native Pants Place equivalents are suffixed **(Wine)**.
 
 - Source submodule: `vendor/wine-assembly` → https://github.com/vgrichina/berrry-wine
 - Runtime output: `public/wine/` (generated, gitignored)
@@ -149,7 +151,7 @@ The site code is released under the MIT license in `LICENSE`. Third-party assets
 - `npm run wine:assets` — refresh only the mirrored app assets
 - `npm run wine:registry` — regenerate `src/generated/wine-apps.ts`
 - `npm run wine:verify` — validate the asset mirror against `wine-assets.lock.json`
-- `npm run wine:smoke` — Playwright check for the launcher, two Wine windows, dropped `.exe`, and FreeDOS input isolation
+- `npm run wine:smoke` — Playwright check for the Start menu entries, two Wine windows, dropped `.exe`, and FreeDOS input isolation
 - `npm run generate:media` — regenerate the demo MIDI files
 - `npm run generate:og` — regenerate `public/og.png`
 

@@ -1,6 +1,5 @@
 import type { DesktopDocument } from './types';
 import type { MediaEntry } from '../integrations/media-manifest';
-import { wineApps } from '../generated/wine-apps';
 
 export interface VfsFile {
   type: 'file';
@@ -77,17 +76,6 @@ export function buildVfs(documents: DesktopDocument[], media: MediaEntry[]): Vfs
           shortcut('Notepad', 'notepad', '/icons/notepad.svg'),
           shortcut('Paint', 'paint', '/icons/paint.svg'),
           shortcut('Minesweeper', 'minesweeper', '/icons/mine.svg'),
-          {
-            type: 'folder',
-            name: 'Wine-Assembly',
-            modified: now(),
-            children: wineApps.map((app) =>
-              shortcut(app.title, `wine-${app.id}`, app.icon, {
-                wineAppId: app.id,
-                title: app.title,
-              }),
-            ),
-          },
         ],
       },
       {

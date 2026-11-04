@@ -2,11 +2,71 @@ import { useState } from 'preact/hooks';
 import { startMenuOpen, openApp } from '../../kernel/windows';
 import { showDialog } from '../../kernel/dialogs';
 import { webSites } from '../../kernel/web';
-import { wineApps } from '../../generated/wine-apps';
+import { wineAppsByCategory, wineAppsById, type WineAppInfo } from '../../generated/wine-apps';
 import { openWineApp } from '../../kernel/wine';
 import type { DesktopDocument } from '../../kernel/types';
 
 const arrow = <span class="arrow" />;
+
+const WINE_DUPLICATE_IDS = new Set([
+  'notepad',
+  'calc',
+  'mspaint98',
+  'wordpad',
+  'winamp',
+  'winmine_wep',
+]);
+
+const WINE_GAME_GROUPS: Array<{ label: string; apps: WineAppInfo[] }> = [
+  {
+    label: 'Card & Board',
+    apps: ['freecell', 'sol', 'cruel', 'golf', 'pegged', 'taipei', 'tictac', 'reversi', 'spider', 'qblackjack']
+      .map((id) => wineAppsById[id])
+      .filter(Boolean),
+  },
+  {
+    label: 'Arcade & Puzzle',
+    apps: [
+      'snake',
+      'wep16_rodent',
+      'wep16_jezzball',
+      'winmine_wep',
+      'ski32',
+      'pinball',
+      'marbles',
+      'bricks',
+      'empipe',
+      'funtris',
+      'peaks',
+      'pyramid',
+      'fourstones',
+      'cwordzap',
+      'dxball',
+      'blobby_volley',
+    ]
+      .map((id) => wineAppsById[id])
+      .filter(Boolean),
+  },
+  {
+    label: 'Demos',
+    apps: ['starcraft_shareware', 'diablo_shareware', 'heroes2_demo', 'rct', 'quake2_demo', 'quake3_demo']
+      .map((id) => wineAppsById[id])
+      .filter(Boolean),
+  },
+];
+
+function wineLabel(app: WineAppInfo) {
+  return WINE_DUPLICATE_IDS.has(app.id) ? `${app.title} (Wine)` : app.title;
+}
+
+function WineStartItem({ app, launch }: { app: WineAppInfo; launch: (id: string) => void }) {
+  return (
+    <button class="start-item" data-wine-app={app.id} onClick={() => launch(app.id)}>
+      <img src={app.icon} alt="" width="18" height="18" style={{ imageRendering: 'pixelated' }} />
+      <span class="label">{wineLabel(app)}</span>
+    </button>
+  );
+}
 
 export default function StartMenu({ documents }: { documents: DesktopDocument[] }) {
   const [sub, setSub] = useState<string | null>(null);
@@ -211,31 +271,9 @@ export default function StartMenu({ documents }: { documents: DesktopDocument[] 
                         <img src="/icons/file-text.svg" alt="" width="18" height="18" />
                         <span class="label">WordPad</span>
                       </button>
-                    </div>
-                  ) : null}
-                </div>
-                <div style={{ position: 'relative' }}>
-                  <button
-                    class={`start-item ${nested === 'wine' ? 'open' : ''}`}
-                    onMouseEnter={() => setNested('wine')}
-                    onClick={() => setNested('wine')}
-                  >
-                    <img src="/icons/wine.svg" alt="" width="18" height="18" />
-                    <span class="label">Wine-Assembly</span>
-                    {arrow}
-                  </button>
-                  {nested === 'wine' ? (
-                    <div class="start-submenu">
-                      <button class="start-item" onClick={() => launch('wine-launcher')}>
-                        <img src="/icons/wine.svg" alt="" width="18" height="18" />
-                        <span class="label">All Wine Programs...</span>
-                      </button>
                       <div class="start-separator" />
-                      {wineApps.filter((app) => app.featured).map((app) => (
-                        <button class="start-item" onClick={() => launchWine(app.id)}>
-                          <img src={app.icon} alt="" width="18" height="18" style={{ imageRendering: 'pixelated' }} />
-                          <span class="label">{app.title}</span>
-                        </button>
+                      {wineAppsByCategory.accessories.map((app) => (
+                        <WineStartItem key={app.id} app={app} launch={launchWine} />
                       ))}
                     </div>
                   ) : null}
@@ -251,15 +289,38 @@ export default function StartMenu({ documents }: { documents: DesktopDocument[] 
                     {arrow}
                   </button>
                   {nested === 'games' ? (
-                    <div class="start-submenu">
+                    <div class="start-submenu start-submenu-scroll" style={{ top: 'auto', bottom: 0 }}>
                       <button class="start-item" onClick={() => launch('minesweeper')}>
                         <img src="/icons/mine.svg" alt="" width="18" height="18" />
                         <span class="label">Minesweeper</span>
                       </button>
-                      <button class="start-item" onClick={() => launchWine('sol')}>
-                        <img src={wineApps.find((app) => app.id === 'sol')?.icon || '/icons/mine.svg'} alt="" width="18" height="18" style={{ imageRendering: 'pixelated' }} />
-                        <span class="label">Solitaire</span>
-                      </button>
+                      <div class="start-separator" />
+                      {WINE_GAME_GROUPS.map((group) => (
+                        <div class="start-submenu-group" key={group.label}>
+                          <div class="start-submenu-heading">{group.label}</div>
+                          {group.apps.map((app) => (
+                            <WineStartItem key={app.id} app={app} launch={launchWine} />
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    class={`start-item ${nested === 'system-tools' ? 'open' : ''}`}
+                    onMouseEnter={() => setNested('system-tools')}
+                    onClick={() => setNested('system-tools')}
+                  >
+                    <img src="/icons/settings.svg" alt="" width="18" height="18" />
+                    <span class="label">System Tools</span>
+                    {arrow}
+                  </button>
+                  {nested === 'system-tools' ? (
+                    <div class="start-submenu">
+                      {wineAppsByCategory.system.map((app) => (
+                        <WineStartItem key={app.id} app={app} launch={launchWine} />
+                      ))}
                     </div>
                   ) : null}
                 </div>

@@ -22,10 +22,6 @@ export function openWineApp(id: string) {
   return true;
 }
 
-export function openWineLauncher() {
-  openApp('wine-launcher');
-}
-
 export function openWineDrop(files: File[], name?: string) {
   const list = Array.from(files || []);
   if (!list.length) return false;

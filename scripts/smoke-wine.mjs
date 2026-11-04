@@ -1,7 +1,10 @@
+import fs from 'node:fs';
 import { chromium } from 'playwright';
 
 const base = process.env.BASE_URL || 'http://127.0.0.1:4321';
 const all = process.argv.includes('--all');
+const manifest = JSON.parse(fs.readFileSync('public/wine/apps.manifest.json', 'utf8'));
+const wineIds = Object.keys(manifest.apps);
 
 const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
@@ -19,42 +22,38 @@ async function openDesktop() {
   await page.waitForTimeout(400);
 }
 
-async function openLauncher() {
+async function openPrograms() {
   await page.locator('.start-button').click();
   await page.locator('.start-item', { hasText: 'Programs' }).first().click();
-  await page.waitForTimeout(120);
-  await page.locator('.start-item', { hasText: 'Wine-Assembly' }).first().click();
-  await page.waitForTimeout(120);
-  await page.locator('.start-item', { hasText: 'All Wine Programs' }).click();
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(150);
 }
 
-async function launch(id, wait = 8000) {
-  await page.locator(`[data-wine-app="${id}"]`).dblclick();
-  await page.waitForTimeout(wait);
+function folderFor(category) {
+  if (category === 'accessories') return 'Accessories';
+  if (category === 'system') return 'System Tools';
+  return 'Games';
+}
+
+async function launchFromStart(id) {
+  const category = manifest.apps[id]?.category || 'games';
+  await openPrograms();
+  await page.locator('.start-item', { hasText: folderFor(category) }).first().click();
+  await page.waitForTimeout(250);
+  await page.locator(`[data-wine-app="${id}"]`).click();
+  await page.waitForTimeout(150);
 }
 
 function wineFrame(id) {
   return page.frames().find((frame) => frame.url().includes('app=' + id));
 }
 
-async function launchWineMenu(label) {
-  await page.locator('.start-button').click();
-  await page.locator('.start-item', { hasText: 'Programs' }).first().click();
-  await page.waitForTimeout(120);
-  await page.locator('.start-item', { hasText: 'Wine-Assembly' }).first().click();
-  await page.waitForTimeout(120);
-  await page.locator('.start-item', { hasText: label }).first().click();
-}
-
 await openDesktop();
-await openLauncher();
-const count = await page.locator('[data-wine-app]').count();
-if (count !== 41) throw new Error(`expected 41 Wine programs, found ${count}`);
+if (wineIds.length !== 41) throw new Error(`expected 41 Wine programs, found ${wineIds.length}`);
 
-await launch('pinball', 9000);
-await openLauncher();
-await launch('sol', 9000);
+await launchFromStart('pinball');
+await page.waitForTimeout(11000);
+await launchFromStart('sol');
+await page.waitForTimeout(10000);
 
 const frames = page.locator('.wine-frame');
 if ((await frames.count()) !== 2) throw new Error('expected two Wine windows');
@@ -103,7 +102,7 @@ await page.waitForTimeout(800);
 const before = await page.locator('.dos-text').textContent();
 if (!before.includes('TERM')) throw new Error('terminal did not receive focus');
 
-await launchWineMenu('Pinball');
+await launchFromStart('pinball');
 await page.waitForTimeout(11000);
 const wineWindow = page.locator('.win98-window', { has: page.locator('.wine-frame') }).last();
 const box = await wineWindow.boundingBox();
@@ -117,11 +116,10 @@ const after = await page.locator('.dos-text').textContent();
 if (after !== before) throw new Error('Wine keyboard input leaked into the FreeDOS terminal');
 
 if (all) {
-  const manifest = await page.evaluate(async () => (await fetch('/wine/apps.manifest.json')).json());
-  for (const id of Object.keys(manifest.apps)) {
+  for (const id of wineIds) {
     await openDesktop();
-    await openLauncher();
-    await launch(id, 9000);
+    await launchFromStart(id);
+    await page.waitForTimeout(9000);
     const target = wineFrame(id);
     const status = target ? await target.locator('#status').textContent() : '';
     if (!status.includes('Running')) throw new Error(`${id} did not reach Running`);
