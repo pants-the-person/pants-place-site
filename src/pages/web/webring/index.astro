@@ -1,46 +1,81 @@
 ---
 import WebLayout from '../../../layouts/WebLayout.astro';
+import ringData from '../../../data/oldnet-webring.json';
+import { oldNetProxyUrl } from '../../../kernel/web';
 
-const ring = [
-  { name: 'Pants Place 98', url: '/web/', description: '486 tuning, MIDI files, and bad jokes.' },
-  { name: "Kylie's Cyber Sanctuary", url: '/web/~kylie/', description: 'A digital realm in cyberspace, established 1997.' },
-  { name: 'pants_the_person // GeoCities', url: '/web/~pants/', description: 'The older, louder, more animated homepage.' },
-  { name: 'The MIDI Archive', url: '/web/downloads/', description: 'Free MIDI files for your Winamp playlist.' },
-  { name: 'The Pants Log', url: '/web/blog/', description: 'Computers, the web, and pizza rolls.' },
-];
+const members = ringData.members;
 ---
 
-<WebLayout title="The Cool Webring — PANTS PLACE 98" description="A ring of extremely cool websites.">
-  <h1>THE COOL WEBRING</h1>
+<WebLayout title="The Old Net Webring — PANTS PLACE 98" description="The Old Net's ring of retro websites and personal homepages.">
+  <h1>THE OLD NET WEBRING</h1>
   <p>
     A webring is a circle of websites. You visit one, then you click "Next" and visit another.
-    It is like a search engine, but with friends. This ring was founded in 1998 and has
-    five members. That is enough.
+    This page mirrors the live <a href="https://webring.theoldnet.com/" data-oldnet-url="http://webring.theoldnet.com/" data-oldnet-year="1998">The Old Net Webring</a>,
+    a hand-maintained ring of {members.length} retro sites, personal homepages and small web projects.
   </p>
 
   <div style="text-align:center;padding:10px;background:#000;color:#00ff00;font-family:'Courier New',monospace;border:2px inset #808080;margin-bottom:16px">
-    [ <a href="/web/~kylie/" style="color:#00ffff">Previous</a> ]
-    [ <a href="/web/" style="color:#00ffff">Random</a> ]
-    [ <a href="/web/downloads/" style="color:#00ffff">Next</a> ]
+    <button type="button" id="ring-random" style="font-family:'Courier New',monospace">🎲 Random site</button>
     <br />
-    <span style="font-size:12px">You are visitor 004,892 to the ring.</span>
+    <span style="font-size:12px">Links open through The Old Net archive when possible.</span>
+  </div>
+
+  <div class="web-panel">
+    <label for="ring-filter"><b>Filter the ring:</b></label>{' '}
+    <input id="ring-filter" type="search" placeholder="name, description or URL" style="width:min(420px,80%)" />
   </div>
 
   <h2>Members</h2>
-  <ul>
-    {ring.map((site) => (
-      <li>
-        <a href={site.url}><b>{site.name}</b></a> — {site.description}
+  <ul id="ring-list" class="web-results">
+    {members.map((member) => (
+      <li data-ring-text={`${member.name} ${member.description} ${member.url}`.toLowerCase()}>
+        <a
+          href={oldNetProxyUrl(member.url, 1998)}
+          data-oldnet-url={member.url}
+          data-oldnet-year="1998"
+        ><b>{member.name}</b></a>
+        <div style="font-size:13px;color:#333">{member.description || member.url}</div>
+        <div style="font-size:11px;color:#666;font-family:'Courier New',monospace">{member.url}</div>
       </li>
     ))}
   </ul>
 
-  <h2>Join the ring</h2>
-  <p>
-    If you have a cool website and want to join, sign the guestbook with your URL and I will
-    add you. The only rules are: no autoplaying audio without a pause button, and no Comic Sans
-    in the body text. (Comic Sans in the guestbook is fine.)
-  </p>
+  <div style="text-align:center;margin:20px 0">
+    <a href="https://webring.theoldnet.com/" data-oldnet-url="http://webring.theoldnet.com/" data-oldnet-year="1998">
+      Visit the live The Old Net Webring »
+    </a>
+    {' · '}
+    <a href="https://webring.theoldnet.com/submit">Submit a website</a>
+  </div>
 
-  <p><a href="/web/">« Back to the homepage</a></p>
+  <script type="application/json" id="ring-member-urls" set:html={JSON.stringify(members.map((member) => member.url))} />
+  <script is:inline>
+    (() => {
+      const filter = document.getElementById('ring-filter');
+      const list = document.getElementById('ring-list');
+      if (filter && list) {
+        filter.addEventListener('input', () => {
+          const needle = filter.value.trim().toLowerCase();
+          for (const item of list.children) {
+            item.style.display = !needle || item.dataset.ringText.includes(needle) ? '' : 'none';
+          }
+        });
+      }
+
+      const random = document.getElementById('ring-random');
+      if (random) {
+        random.addEventListener('click', () => {
+          const urls = JSON.parse(document.getElementById('ring-member-urls').textContent || '[]');
+          if (!urls.length) return;
+          const url = urls[Math.floor(Math.random() * urls.length)];
+          if (window.parent !== window) {
+            window.parent.postMessage({ type: 'pants:navigate', url, year: 1998 }, location.origin);
+          } else {
+            location.href = 'https://theoldnet.com/get?year=1998&scripts=false&decode=false&url=' +
+              encodeURIComponent(url);
+          }
+        });
+      }
+    })();
+  </script>
 </WebLayout>

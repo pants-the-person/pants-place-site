@@ -5,7 +5,9 @@ A functional Windows 98-style desktop that runs entirely in the browser.
 - **Astro 7 + Preact** shell with a real window manager, taskbar, Start menu, desktop icons, dialogs and persistent settings.
 - **MS-DOS Prompt** running a real **FreeDOS 7.10** virtual machine in **v86 / WebAssembly**. Type `VER`, `DIR`, `MEM`, `INVADERS`, `SNAKE` or `TETRIS`.
 - **Winamp 2.8** clone with playlist, 10-band EQ and spectrum analyser. Plays **MIDI** through a General MIDI SoundFont and **OGG** through the Web Audio API.
-- **Internet Explorer 4** clone browsing a fake 1998 internet at `/web/` with news, a devlog, guestbook, webring, downloads and an AltaVista-style search.
+- **Internet Explorer 4** clone browsing a fake 1998 internet at `/web/` with news, a devlog, guestbook, webring, downloads and an AltaVista-style search. It can also browse archived real websites through **The Old Net**, with a year selector, URL tracking and Copy Link.
+- **The Old Net Webring** with 223 scraped retro sites and a filter/random button.
+- **UltimateShades**, a friend-site overclocking shrine alongside Kylie's Cyber Sanctuary.
 - **Explorer, Notepad, Paint, Minesweeper, Calculator, Display Properties and Help**.
 - **Wine-Assembly** running 41 real Windows 98 programs and games from mirrored `.exe` files in a WebAssembly x86 emulator. Open them from **Start → Programs → Accessories**, **Games**, or **System Tools**.
 - **Explorer drag-and-drop / Open with Wine** for `.exe`, `.zip`, `.iso` and `.cue` media. Dropped files stay in the browser.
@@ -114,6 +116,36 @@ Every page under `src/pages/web/` is a real static Astro route. The IE window ma
 
 Content lives in `src/content/web/` (news + blog collections). Documents shown in `C:\My Documents` live in `src/content/documents/`.
 
+### Browsing The Old Net
+
+Enter a real external address such as `www.winamp.com` in IE. It is fetched through The Old Net archive at the selected year and rendered in a same-origin `srcdoc` document, which lets IE:
+
+- update the address bar as links inside the archived page are clicked
+- keep Back/Forward history against the original URLs
+- copy the current original URL with **Copy Link**
+- fall back to a normal cross-origin iframe when an archived page uses framesets or cannot be safely rendered
+
+The toolbar year selector defaults to **1998**. The Old Net fetch depends on its public CORS-enabled proxy; there is no server-side proxy in Pants Place.
+
+### Search
+
+The AltaVista search page searches both:
+
+- the local Pants Place index
+- The Old Net archive via `https://theoldnet.com/find?query=...`
+
+Archive result links route back through IE so the address bar stays in sync.
+
+### Webring
+
+`src/data/oldnet-webring.json` is a committed snapshot of the live The Old Net Webring, currently 223 members. Refresh it with:
+
+```bash
+npm run sync:webring
+```
+
+The webring page links members through The Old Net archive and supports filtering and a random-site button.
+
 ## Deployment
 
 The site is now a **Cloudflare Workers static-assets project** served on the `pants.place/*` route. The build is still static Astro output in `dist`.
@@ -152,6 +184,7 @@ The site code is released under the MIT license in `LICENSE`. Third-party assets
 - `npm run wine:registry` — regenerate `src/generated/wine-apps.ts`
 - `npm run wine:verify` — validate the asset mirror against `wine-assets.lock.json`
 - `npm run wine:smoke` — Playwright check for the Start menu entries, two Wine windows, dropped `.exe`, and FreeDOS input isolation
+- `npm run sync:webring` — refresh the scraped The Old Net Webring snapshot
 - `npm run generate:media` — regenerate the demo MIDI files
 - `npm run generate:og` — regenerate `public/og.png`
 

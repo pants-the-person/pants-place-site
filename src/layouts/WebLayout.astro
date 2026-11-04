@@ -38,6 +38,7 @@ const { title, description = 'A website from 1998, preserved on the information 
         <a href="/web/blog/">BLOG</a>
         <a href="/web/~pants/">MY PAGE</a>
         <a href="/web/~kylie/">KYLIE</a>
+        <a href="/web/~ultimateshades/">SHADES</a>
         <a href="/web/guestbook/">GUESTBOOK</a>
         <a href="/web/webring/">WEBRING</a>
         <a href="/web/downloads/">DOWNLOADS</a>
@@ -53,7 +54,7 @@ const { title, description = 'A website from 1998, preserved on the information 
           <span class="badge badge-pants">PANTS PLACE 98</span>
           <span class="badge badge-wasm">POWERED BY WASM</span>
           <span class="badge badge-ie">BEST VIEWED IN IE4</span>
-          <span class="badge badge-ring">COOL WEBRING</span>
+          <span class="badge badge-ring">OLD NET WEBRING</span>
         </div>
         <div class="web-counter">
           You are visitor number
@@ -69,6 +70,22 @@ const { title, description = 'A website from 1998, preserved on the information 
       </footer>
     </div>
 
+    <script is:inline>
+      (() => {
+        document.addEventListener('click', (event) => {
+          const target = event.target;
+          const link = target && target.closest ? target.closest('a[data-oldnet-url]') : null;
+          if (!link) return;
+          if (window.parent === window) return;
+          event.preventDefault();
+          window.parent.postMessage({
+            type: 'pants:navigate',
+            url: link.getAttribute('data-oldnet-url'),
+            year: Number(link.getAttribute('data-oldnet-year') || 1998),
+          }, location.origin);
+        });
+      })();
+    </script>
     <script is:inline>
       (() => {
         try {

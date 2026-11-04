@@ -28,6 +28,12 @@ Pants Place 98 is an unofficial fan project. The following third-party works are
 - **SeaVGABIOS** — LGPL-3.0 — https://github.com/copy/v86/tree/master/bios (binary `public/v86/vgabios.bin`).
 - **FreeDOS 7.10 boot image** — FreeDOS is GPL-2.0. Image source: https://copy.sh/v86/images/freedos722.img. The FreeDOS project: https://www.freedos.org. GPL text: `public/v86/GPL-2.0.txt`.
 
+## The Old Net
+
+- **The Old Net** — https://theoldnet.com — a public frontend for the Internet Archive Wayback Machine. Pants Place uses its CORS-enabled `/get` proxy to render archived pages and its `/find` search endpoint for archive results. The Old Net's own terms describe personal use as free; this site attributes the service and does not proxy it server-side.
+- **Internet Archive Wayback Machine** — https://archive.org/web/ — archived page content and assets are served by The Old Net from the Internet Archive. Archived sites retain their original copyright and terms.
+- **The Old Net Webring** — https://webring.theoldnet.com/ — member names, URLs and descriptions are scraped into `src/data/oldnet-webring.json`. The webring is attributed and linked on the local `/web/webring/` page.
+
 ## Wine-Assembly
 
 - **Wine-Assembly** — MIT, Copyright (c) 2026 Vladimir Grichina — https://github.com/vgrichina/berrry-wine. The runtime, host JavaScript, fonts/icons and compiled wasm are mirrored under `public/wine/`. License: `public/wine/WINE-ASSEMBLY-LICENSE.txt`.

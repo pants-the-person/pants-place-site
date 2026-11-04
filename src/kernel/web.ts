@@ -6,6 +6,97 @@ export interface WebSite {
   favorite?: boolean;
 }
 
+export interface OldNetSite {
+  title: string;
+  url: string;
+  description: string;
+}
+
+export const OLDNET_ORIGIN = 'https://theoldnet.com';
+export const OLDNET_DEFAULT_YEAR = 1998;
+export const OLDNET_YEARS = [1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006];
+
+export function oldNetProxyUrl(url: string, year = OLDNET_DEFAULT_YEAR): string {
+  if (/^https?:\/\/theoldnet\.com\/get/i.test(url)) return url;
+  const query = new URLSearchParams({
+    year: String(year),
+    scripts: 'false',
+    decode: 'false',
+    url,
+  });
+  return `${OLDNET_ORIGIN}/get?${query.toString()}`;
+}
+
+export function oldNetOriginalUrl(href: string): string | null {
+  try {
+    const parsed = new URL(href, OLDNET_ORIGIN);
+    if (parsed.hostname !== 'theoldnet.com' || parsed.pathname !== '/get') return null;
+    const original = parsed.searchParams.get('url');
+    if (!original) return null;
+    return /^https?:\/\//i.test(original) ? original : `http://${original}`;
+  } catch {
+    return null;
+  }
+}
+
+export function normalizeExternalUrl(raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return null;
+  const candidate = /^https?:\/\//i.test(value)
+    ? value
+    : /^[\w.-]+\.[a-z]{2,}(?:[/:?#]|$)/i.test(value)
+      ? `http://${value}`
+      : null;
+  if (!candidate) return null;
+  try {
+    return new URL(candidate).href;
+  } catch {
+    return null;
+  }
+}
+
+export function isOldNetHost(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === 'theoldnet.com' || host.endsWith('.theoldnet.com');
+  } catch {
+    return false;
+  }
+}
+
+export const oldNetFavorites: OldNetSite[] = [
+  {
+    title: 'The Old Net',
+    url: 'http://theoldnet.com/',
+    description: 'Archived versions of the 1990s web.',
+  },
+  {
+    title: "Old'aVista",
+    url: 'http://www.oldavista.com/',
+    description: 'A search engine for old personal homepages.',
+  },
+  {
+    title: 'Winamp',
+    url: 'http://www.winamp.com/',
+    description: 'Skins, plugins and the llama.',
+  },
+  {
+    title: 'GeoCities',
+    url: 'http://www.geocities.com/',
+    description: 'The lost city of personal homepages.',
+  },
+  {
+    title: 'Yahoo!',
+    url: 'http://www.yahoo.com/',
+    description: 'The 1998 directory of everything.',
+  },
+  {
+    title: 'AltaVista',
+    url: 'http://www.altavista.com/',
+    description: 'The search engine of the old web.',
+  },
+];
+
 export const webSites: WebSite[] = [
   {
     host: 'http://www.pantsplace.net/',
@@ -40,6 +131,13 @@ export const webSites: WebSite[] = [
     path: '/web/~pants/',
     title: 'pants_the_person // GeoCities',
     description: 'The older, louder, more animated homepage.',
+  },
+  {
+    host: 'http://www.geocities.com/SiliconValley/Byte/1998/ultimateshades/',
+    path: '/web/~ultimateshades/',
+    title: 'UltimateShades',
+    description: 'Overclocking shrine, 486 benchmarks and case mods.',
+    favorite: true,
   },
   {
     host: 'http://www.pantsplace.net/downloads/',

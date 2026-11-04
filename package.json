@@ -19,6 +19,7 @@
     "wine:registry": "node scripts/wine/gen-registry.mjs",
     "wine:verify": "node scripts/wine/verify.mjs",
     "wine:smoke": "node scripts/smoke-wine.mjs",
+    "sync:webring": "node scripts/fetch-oldnet-webring.mjs",
     "generate:media": "node scripts/generate-media.mjs",
     "generate:og": "node scripts/generate-og.mjs"
   },

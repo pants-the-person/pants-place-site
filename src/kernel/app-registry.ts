@@ -32,7 +32,7 @@ export const apps: AppDefinition[] = [
     icon: '/icons/ie.svg',
     smallIcon: '/icons/ie-16.svg',
     category: 'internet',
-    defaultSize: { w: 760, h: 520 },
+    defaultSize: { w: 900, h: 650 },
     minSize: { w: 420, h: 300 },
     component: () => import('../components/apps/InternetExplorer'),
     desktop: true,
