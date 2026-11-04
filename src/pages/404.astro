@@ -1,17 +1,17 @@
 ---
-import RecentBlogPosts from '@components/generic/RecentBlogPosts.astro';
-import Layout from '@layouts/Default.astro';
-import ErrorPage from '@components/errors/404.astro';
+import WebLayout from '../layouts/WebLayout.astro';
 ---
 
-<Layout
-  title='Page Not Found'
-  description='Page not found'
-  classList='h-full'
-  pageTitle='Page Not Found!'
->
-  <main class='bg-blue px-6 py-24'>
-    <ErrorPage />
-    <RecentBlogPosts />
-  </main>
-</Layout>
+<WebLayout title="404 — Page not found" description="The page could not be found on this server.">
+  <div class="web-error">
+    <h1>404 — The page cannot be found</h1>
+    <p>The page you requested does not exist on this server. It may have been moved, renamed, or swallowed by a Y2K bug.</p>
+    <p>Try one of these instead:</p>
+    <ul>
+      <li><a href="/">The Pants Place 98 desktop</a></li>
+      <li><a href="/web/">The PantsNet homepage</a></li>
+      <li><a href="/web/news/">Pants News</a></li>
+      <li><a href="/web/blog/">The Pants Log</a></li>
+    </ul>
+  </div>
+</WebLayout>

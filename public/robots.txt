@@ -1,4 +1,5 @@
 User-agent: *
-Disallow: 
-Host: https://brutal.elian.codes/
-Sitemap: https://brutal.elian.codes/sitemap-index.xml
+Allow: /
+Disallow: /.well-known/
+
+Sitemap: https://pants.place/sitemap-index.xml

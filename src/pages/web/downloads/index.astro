@@ -1,0 +1,72 @@
+---
+import WebLayout from '../../../layouts/WebLayout.astro';
+import media from 'virtual:media-manifest';
+
+const tracks = media.filter((entry) => entry.kind === 'midi' || entry.kind === 'audio');
+---
+
+<WebLayout title="Downloads — PANTS PLACE 98" description="MIDI files, wallpapers, and 88x31 buttons.">
+  <h1>DOWNLOADS</h1>
+  <p>
+    Everything here is free. Right-click and "Save As" like a normal person. If you are on a
+    56k modem, the OGG file will take a while; the MIDI files are tiny.
+  </p>
+
+  <h2>🎵 MIDI &amp; Audio</h2>
+  <table style="width:100%;border-collapse:collapse;font-family:'Courier New',monospace;font-size:13px">
+    <tr style="background:#000080;color:#fff">
+      <th style="border:1px solid #000;padding:4px;text-align:left">File</th>
+      <th style="border:1px solid #000;padding:4px;text-align:left">Type</th>
+      <th style="border:1px solid #000;padding:4px;text-align:left">Size</th>
+      <th style="border:1px solid #000;padding:4px">Play</th>
+    </tr>
+    {tracks.map((track) => (
+      <tr>
+        <td style="border:1px solid #999;padding:4px"><a href={track.url}>{track.name}</a></td>
+        <td style="border:1px solid #999;padding:4px">{track.kind === 'midi' ? 'MIDI' : 'OGG'}</td>
+        <td style="border:1px solid #999;padding:4px">{Math.ceil(track.size / 1024)} KB</td>
+        <td style="border:1px solid #999;padding:4px;text-align:center">
+          <button type="button" onclick={`parent.postMessage({type:'pants:play', id:'${track.id}'}, '*')`}>
+            ▶
+          </button>
+        </td>
+      </tr>
+    ))}
+  </table>
+  <p style="font-size:13px;color:#555">
+    MIDI playback uses the General MIDI SoundFont in Winamp. OGG playback uses the Web Audio API.
+  </p>
+
+  <h2>🖼 Wallpapers</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:10px">
+    <div style="width:150px;border:2px outset #808080;padding:4px">
+      <div style="height:70px;background:#008080"></div>
+      <b>Classic Teal</b>
+    </div>
+    <div style="width:150px;border:2px outset #808080;padding:4px">
+      <div style="height:70px;background:radial-gradient(circle at 30% 30%, #fff, #1c8ab0)"></div>
+      <b>Clouds</b>
+    </div>
+    <div style="width:150px;border:2px outset #808080;padding:4px">
+      <div style="height:70px;background:repeating-linear-gradient(45deg,#1b3b5a 0 12px,#2c5d86 12px 18px)"></div>
+      <b>Pipes</b>
+    </div>
+    <div style="width:150px;border:2px outset #808080;padding:4px">
+      <div style="height:70px;background:#000018;background-image:radial-gradient(#fff .7px, transparent 1px);background-size:20px 20px"></div>
+      <b>Starry Night</b>
+    </div>
+  </div>
+  <p>Apply these from <b>Display Properties</b> on the desktop (right-click the desktop → Properties).</p>
+
+  <h2>🔗 88x31 Buttons</h2>
+  <p>Link back to Pants Place with one of these extremely professional buttons:</p>
+  <div style="display:flex;flex-wrap:wrap;gap:6px">
+    <span class="badge badge-pants">PANTS PLACE 98</span>
+    <span class="badge badge-wasm">POWERED BY WASM</span>
+    <span class="badge badge-ie">BEST VIEWED IN IE4</span>
+    <span class="badge badge-ring">COOL WEBRING</span>
+  </div>
+  <p style="font-size:13px;color:#555">Copy one of these badge styles, or just link to <a href="/web/">/web/</a>.</p>
+
+  <p style="margin-top:18px"><a href="/web/">« Back to the homepage</a></p>
+</WebLayout>

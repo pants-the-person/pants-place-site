@@ -1,0 +1,102 @@
+---
+import WebLayout from '../../layouts/WebLayout.astro';
+import { entryUrl, formatDate, getBlog, getNews } from '../../lib/web';
+
+const news = (await getNews()).slice(0, 3);
+const blog = (await getBlog()).slice(0, 3);
+---
+
+<WebLayout title="PANTS PLACE 98 — Home" description="The official homepage of pants_the_person. 486 tuning, MIDI files, webrings, and more.">
+  <div class="web-columns">
+    <div>
+      <h1>WELCOME TO MY CORNER OF CYBERSPACE!</h1>
+      <p>
+        Hi, I'm <b>pants_the_person</b>. This is my personal homepage on the World Wide Web.
+        I like old computers, MIDI files, and making websites that are too wide for your monitor.
+      </p>
+      <p>
+        <span class="web-under-construction">🚧 UNDER CONSTRUCTION 🚧</span>
+        <span class="web-blink" style="color:#cc0000;font-weight:700;margin-left:8px;">NEW!</span>
+        The guestbook is back online.
+      </p>
+
+      <div class="web-panel">
+        <h3>📰 Latest News</h3>
+        <ul class="web-post-list">
+          {news.map((entry) => (
+            <li>
+              <div class="web-post-date">{formatDate(entry.data.date)}</div>
+              <a class="web-post-title" href={entryUrl(entry)}>{entry.data.title}</a>
+              <p style="margin:4px 0 0">{entry.data.summary}</p>
+            </li>
+          ))}
+        </ul>
+        <p><a href="/web/news/">Read the news archive »</a></p>
+      </div>
+
+      <div class="web-panel">
+        <h3>📓 From the Pants Log</h3>
+        <ul class="web-post-list">
+          {blog.map((entry) => (
+            <li>
+              <div class="web-post-date">{formatDate(entry.data.date)}</div>
+              <a class="web-post-title" href={entryUrl(entry)}>{entry.data.title}</a>
+              <p style="margin:4px 0 0">{entry.data.summary}</p>
+            </li>
+          ))}
+        </ul>
+        <p><a href="/web/blog/">Read the whole log »</a></p>
+      </div>
+
+      <div class="web-panel web-panel-hot">
+        <h3>🎵 Now Playing</h3>
+        <p style="margin-bottom:6px">
+          The official Pants Place theme, composed by me in a shareware tracker. Press play to open it in Winamp.
+        </p>
+        <button
+          type="button"
+          style="padding:6px 12px;font-family:Arial;font-weight:700;background:#c0c0c0;border:2px outset #fff;"
+          onclick="parent.postMessage({type:'pants:play', id:'pants-theme-mid'}, '*')"
+        >
+          ▶ PLAY PANTS THEME.MID
+        </button>
+      </div>
+    </div>
+
+    <aside>
+      <div class="web-panel">
+        <h3>About Me</h3>
+        <p>
+          <b>Name:</b> pants_the_person<br />
+          <b>Location:</b> a bedroom with too many cables<br />
+          <b>Machine:</b> 486 DX2-66, 32 MB RAM<br />
+          <b>Browser:</b> Netscape 4.0<br />
+          <b>Status:</b> online via 56k
+        </p>
+      </div>
+
+      <div class="web-panel">
+        <h3>Cool Links</h3>
+        <ul style="margin-left:16px">
+          <li><a href="/web/~kylie/">Kylie's Cyber Sanctuary</a></li>
+          <li><a href="/web/~pants/">My GeoCities page</a></li>
+          <li><a href="/web/webring/">The Cool Webring</a></li>
+          <li><a href="/web/downloads/">MIDI downloads</a></li>
+          <li><a href="/web/search/">Search the web</a></li>
+        </ul>
+      </div>
+
+      <div class="web-panel">
+        <h3>Sign my guestbook!</h3>
+        <p>It has 38 entries and one of them is from my mom.</p>
+        <p><a href="/web/guestbook/">📖 Sign the guestbook »</a></p>
+      </div>
+
+      <div class="web-panel" style="text-align:center;background:#000;">
+        <div style="color:#00ff00;font-family:'Courier New',monospace;font-size:13px;">BEST VIEWED IN</div>
+        <div style="color:#ffff00;font-family:Impact;font-size:22px;letter-spacing:1px;">800x600</div>
+        <div style="color:#00ffff;font-family:'Courier New',monospace;font-size:12px;">16-BIT COLOR</div>
+      </div>
+    </aside>
+  </div>
+</WebLayout>

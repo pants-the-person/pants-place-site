@@ -1,95 +1,62 @@
 ---
-import Layout from '@layouts/Default.astro';
-import RecentBlogPosts from '@components/generic/RecentBlogPosts.astro';
-import MobileSocials from '@components/home/MobileSocials.astro';
-import { Pill } from '@eliancodes/brutal-ui';
-import { Button } from '@eliancodes/brutal-ui';
-import { Card } from '@eliancodes/brutal-ui';
+import { getCollection } from 'astro:content';
+import Desktop from '../components/os/Desktop';
+import BootScreen from '../components/os/BootScreen.astro';
+import type { DesktopDocument } from '../kernel/types';
+import '../styles/win98.css';
+import '../styles/apps.css';
+import '../styles/wine.css';
 
-const builtWith = [
-  { name: 'Astro', url: 'https://astro.build/' },
-  { name: 'UnoCSS', url: 'https://uno.antfu.me/' },
-  {
-    name: 'Content Collections',
-    url: 'https://docs.astro.build/en/guides/content-collections/',
-  },
-  { name: 'RSS', url: 'https://docs.astro.build/en/guides/rss/' },
-  {
-    name: 'Sitemap',
-    url: 'https://docs.astro.build/en/guides/integrations-guide/sitemap/',
-  },
-  { name: 'Vercel', url: 'https://vercel.com' },
-  { name: 'TypeScript', url: 'https://www.typescriptlang.org/' },
-];
+const entries = await getCollection('documents');
+const documents: DesktopDocument[] = entries
+  .sort((a, b) => a.data.title.localeCompare(b.data.title))
+  .map((entry) => ({
+    id: entry.id,
+    title: entry.data.title,
+    filename: `${entry.id.replace(/[^a-z0-9-]+/gi, '-').toUpperCase()}.TXT`,
+    body: entry.body ?? '',
+    updated: entry.data.updated,
+  }));
 ---
 
-<Layout
-  title='Home'
-  pageTitle='Brutal Theme | Home'
-  description='Brutal is a minimalistic, neobrutalism theme for Astro.'
->
-  <main class='bg-pink p-6'>
-    <MobileSocials />
-    <section id='about' class='grid md:grid-cols-8 gap-8 mt-4'>
-      <h2 class='hidden'>About Brutal</h2>
-      <div class='col-span-4'>
-        <Card>
-          <div class='flex flex-col justify-between items-start gap-4'>
-            <p class='mt-4 outfit text-2xl md:text-5xl lg:text-7xl'>
-              Brutal theme for <a
-                class='text-white'
-                target='_blank'
-                href='https://astro.build/'>Astro</a
-              >
-            </p>
-            <p class='mt-2 outfit text-xl md:text-3xl lg:text-5xl'>
-              A minimalistic, neobrutalism theme for Astro.
-            </p>
-            <Button target={'_self'} href='/blog/'>
-              Check out the blog &rarr;
-            </Button>
-          </div>
-        </Card>
+<!doctype html>
+<html lang="en" data-scheme="standard" data-wallpaper="teal">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Pants Place 98 — a complete retro desktop</title>
+    <meta
+      name="description"
+      content="Pants Place 98 is a functional Windows 98-style desktop in your browser: a real FreeDOS VM, Winamp with MIDI and OGG playback, and a fake 1998 internet."
+    />
+    <meta name="theme-color" content="#008080" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:title" content="Pants Place 98" />
+    <meta
+      property="og:description"
+      content="A functional Windows 98-style desktop with a real FreeDOS VM, Winamp, and a fake 1998 internet."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://pants.place/" />
+    <meta property="og:image" content="https://pants.place/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <BootScreen />
+    <Desktop client:load documents={documents} />
+
+    <noscript>
+      <div style="position: fixed; inset: 0; background: #008080; color: #fff; padding: 32px; font-family: monospace">
+        <h1>Pants Place 98</h1>
+        <p>This desktop needs JavaScript. The fake internet does not:</p>
+        <ul>
+          <li><a style="color: #fff" href="/web/">PantsNet home</a></li>
+          <li><a style="color: #fff" href="/web/news/">News</a></li>
+          <li><a style="color: #fff" href="/web/blog/">The Pants Log</a></li>
+        </ul>
       </div>
-      <div class='col-span-2'>
-        <Card>
-          <h2 class='text-2xl md:text-4xl lg:text-6xl mb-8 dm-serif'>
-            Brutal is built with
-          </h2>
-          <ul class='flex gap-4 flex-wrap'>
-            {
-              builtWith.map((item) => (
-                <li>
-                  <Pill>
-                    <a
-                      class='sanchez'
-                      href={item.url}
-                      target='_blank'
-                      title={`Go to ${item.name}`}
-                    >
-                      {item.name}
-                    </a>
-                  </Pill>
-                </li>
-              ))
-            }
-          </ul>
-        </Card>
-      </div>
-      <div class='col-span-2'>
-        <Card>
-          <h2 class='text-2xl md:text-4xl lg:text-6xl mb-4 dm-serif'>
-            What is Brutal?
-          </h2>
-          <p class='poppins'>
-            Brutal is a theme built with Astro, UnoCSS by <a
-              href='https://www.elian.codes/'>Elian</a
-            >. It's a simple, fast, and modern theme that is easy to use and
-            customize. Mainly meant to power blogs and personal websites.
-          </p>
-        </Card>
-      </div>
-    </section>
-    <RecentBlogPosts />
-  </main>
-</Layout>
+    </noscript>
+
+
+  </body>
+</html>

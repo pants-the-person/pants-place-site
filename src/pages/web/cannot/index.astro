@@ -1,0 +1,33 @@
+---
+import WebLayout from '../../../layouts/WebLayout.astro';
+---
+
+<WebLayout title="The page cannot be displayed" description="Internet Explorer cannot display the page.">
+  <div class="web-error">
+    <h1>The page cannot be displayed</h1>
+    <p id="error-address" style="font-family:'Courier New',monospace"></p>
+    <p>The page you are looking for is currently unavailable. The Web site might be experiencing technical difficulties, or you may need to adjust your browser settings.</p>
+    <hr />
+    <p>Please try the following:</p>
+    <ul>
+      <li>Click the <a href="/web/">Home</a> button to return to the PantsNet homepage.</li>
+      <li>Check the address bar for typos. Remember, this is a fake 1998 internet; only a few sites exist.</li>
+      <li>Search AltaVista for the page you wanted.</li>
+    </ul>
+    <form class="web-search" action="/web/search/" method="get">
+      <input name="q" placeholder="Search the web..." />
+      <button type="submit">Search</button>
+    </form>
+    <p style="font-size:12px;color:#666">
+      Cannot find server or DNS Error<br />
+      Internet Explorer 4.0
+    </p>
+  </div>
+  <script is:inline>
+    (() => {
+      const url = new URLSearchParams(location.search).get('url');
+      const el = document.getElementById('error-address');
+      if (el && url) el.textContent = 'Cannot find server or DNS Error: ' + url;
+    })();
+  </script>
+</WebLayout>

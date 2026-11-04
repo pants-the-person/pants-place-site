@@ -1,0 +1,46 @@
+---
+import WebLayout from '../../../layouts/WebLayout.astro';
+
+const ring = [
+  { name: 'Pants Place 98', url: '/web/', description: '486 tuning, MIDI files, and bad jokes.' },
+  { name: "Kylie's Cyber Sanctuary", url: '/web/~kylie/', description: 'A digital realm in cyberspace, established 1997.' },
+  { name: 'pants_the_person // GeoCities', url: '/web/~pants/', description: 'The older, louder, more animated homepage.' },
+  { name: 'The MIDI Archive', url: '/web/downloads/', description: 'Free MIDI files for your Winamp playlist.' },
+  { name: 'The Pants Log', url: '/web/blog/', description: 'Computers, the web, and pizza rolls.' },
+];
+---
+
+<WebLayout title="The Cool Webring — PANTS PLACE 98" description="A ring of extremely cool websites.">
+  <h1>THE COOL WEBRING</h1>
+  <p>
+    A webring is a circle of websites. You visit one, then you click "Next" and visit another.
+    It is like a search engine, but with friends. This ring was founded in 1998 and has
+    five members. That is enough.
+  </p>
+
+  <div style="text-align:center;padding:10px;background:#000;color:#00ff00;font-family:'Courier New',monospace;border:2px inset #808080;margin-bottom:16px">
+    [ <a href="/web/~kylie/" style="color:#00ffff">Previous</a> ]
+    [ <a href="/web/" style="color:#00ffff">Random</a> ]
+    [ <a href="/web/downloads/" style="color:#00ffff">Next</a> ]
+    <br />
+    <span style="font-size:12px">You are visitor 004,892 to the ring.</span>
+  </div>
+
+  <h2>Members</h2>
+  <ul>
+    {ring.map((site) => (
+      <li>
+        <a href={site.url}><b>{site.name}</b></a> — {site.description}
+      </li>
+    ))}
+  </ul>
+
+  <h2>Join the ring</h2>
+  <p>
+    If you have a cool website and want to join, sign the guestbook with your URL and I will
+    add you. The only rules are: no autoplaying audio without a pause button, and no Comic Sans
+    in the body text. (Comic Sans in the guestbook is fine.)
+  </p>
+
+  <p><a href="/web/">« Back to the homepage</a></p>
+</WebLayout>

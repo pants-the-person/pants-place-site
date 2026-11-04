@@ -1,0 +1,23 @@
+---
+import WebLayout from '../../../layouts/WebLayout.astro';
+import { entryUrl, formatDate, getNews } from '../../../lib/web';
+
+const news = await getNews();
+---
+
+<WebLayout title="Pants News — PANTS PLACE 98" description="Site updates, overclocking disasters, Y2K prep, and other important transmissions.">
+  <h1>PANTS NEWS</h1>
+  <p>All the news that is fit to upload at 56k.</p>
+
+  <ul class="web-post-list">
+    {news.map((entry) => (
+      <li>
+        <div class="web-post-date">{formatDate(entry.data.date)}</div>
+        <a class="web-post-title" href={entryUrl(entry)}>{entry.data.title}</a>
+        <p style="margin:4px 0 0">{entry.data.summary}</p>
+      </li>
+    ))}
+  </ul>
+
+  <p style="margin-top:20px"><a href="/web/">« Back to the homepage</a></p>
+</WebLayout>

@@ -131,3 +131,9 @@ dist
 
 # Astro folders
 .astro
+# Wrangler local state
+.wrangler
+
+# Wine-Assembly generated runtime and mirrored app assets
+/public/wine/
+/.cache/wine/

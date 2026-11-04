@@ -1,43 +1,49 @@
 {
-  "name": "src",
-  "version": "1.2.0",
+  "name": "pants-place-98",
+  "version": "1.0.0",
+  "private": true,
   "type": "module",
-  "packageManager": "pnpm@8.6.0",
-  "author": {
-    "name": "Elian Van Cutsem",
-    "email": "hello@elian.codes",
-    "url": "https://www.elian.codes/"
-  },
-  "homepage": "https://brutal.elian.codes",
+  "description": "Pants Place 98 — a functional Windows 98 desktop, FreeDOS VM, Winamp and fake internet.",
+  "packageManager": "npm@11.20.0",
   "scripts": {
-    "dev": "astro dev",
+    "dev": "node scripts/wine/ensure.mjs && astro dev",
     "start": "astro dev",
-    "build": "astro build",
+    "build": "node scripts/wine/ensure.mjs && astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "deploy": "npm run build && wrangler deploy",
+    "cf:preview": "npm run build && wrangler dev",
+    "cf:dry-run": "npm run build && wrangler deploy --dry-run",
+    "wine:prepare": "node scripts/wine/prepare.mjs",
+    "wine:runtime": "node -e \"import('./scripts/wine/sync-runtime.mjs').then(m=>m.syncRuntime())\"",
+    "wine:assets": "node scripts/wine/sync-assets.mjs",
+    "wine:registry": "node scripts/wine/gen-registry.mjs",
+    "wine:verify": "node scripts/wine/verify.mjs",
+    "wine:smoke": "node scripts/smoke-wine.mjs",
+    "generate:media": "node scripts/generate-media.mjs",
+    "generate:og": "node scripts/generate-og.mjs"
   },
   "dependencies": {
-    "@astrojs/rss": "^4.0.9",
-    "@astrojs/sitemap": "^3.2.1",
-    "@eliancodes/brutal-ui": "^0.2.3",
-    "@unocss/astro": "^0.57.7",
-    "astro": "^4.16.13",
-    "astro-font": "^0.0.80",
-    "satori": "^0.5.0",
-    "satori-html": "^0.3.2"
+    "@astrojs/preact": "^6.1.1",
+    "@astrojs/sitemap": "^3.7.4",
+    "@fontsource/vt323": "^5.3.0",
+    "@preact/signals": "^2.11.4",
+    "98.css": "^0.1.21",
+    "astro": "^7.4.5",
+    "preact": "^11.1.1",
+    "spessasynth_lib": "^4.4.3",
+    "v86": "^0.5.473"
   },
   "devDependencies": {
-    "@iconify-json/logos": "^1.1.41",
-    "@iconify-json/uil": "^1.1.8",
-    "@resvg/resvg-js": "^2.6.0",
-    "@typescript-eslint/parser": "^6.15.0",
-    "@unocss/reset": "^0.57.7",
-    "eslint": "^8.56.0",
-    "eslint-plugin-astro": "^0.29.1",
-    "eslint-plugin-jsx-a11y": "^6.8.0",
-    "prettier": "^3.1.1",
-    "prettier-plugin-astro": "^0.12.2",
-    "sharp": "^0.32.6",
-    "unocss": "^0.57.7"
+    "midi-writer-js": "^3.2.1",
+    "playwright": "^1.64.1",
+    "wrangler": "^4.157.0"
+  },
+  "engines": {
+    "node": ">=26.13.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "workerd@1.20261103.1": true,
+    "midi-writer-js@3.2.1": true
   }
 }

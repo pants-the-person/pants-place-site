@@ -1,0 +1,84 @@
+---
+import '../styles/web.css';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = 'A website from 1998, preserved on the information superhighway.' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div class="web-shell">
+      <header class="web-header">
+        <div class="web-logo">
+          <span class="web-logo-pants">PANTS</span>
+          <span class="web-logo-place">PLACE</span>
+          <span class="web-logo-98">98</span>
+        </div>
+        <div class="web-tagline">~ welcome to my corner of cyberspace ~</div>
+        <div class="web-marquee">
+          <marquee scrollamount="4">★ NOW PLAYING: pants-theme.mid ★ SIGN THE GUESTBOOK ★ JOIN THE WEBRING ★ BEST VIEWED IN 800x600 ★</marquee>
+        </div>
+      </header>
+
+      <nav class="web-nav">
+        <a href="/web/">HOME</a>
+        <a href="/web/news/">NEWS</a>
+        <a href="/web/blog/">BLOG</a>
+        <a href="/web/~pants/">MY PAGE</a>
+        <a href="/web/~kylie/">KYLIE</a>
+        <a href="/web/guestbook/">GUESTBOOK</a>
+        <a href="/web/webring/">WEBRING</a>
+        <a href="/web/downloads/">DOWNLOADS</a>
+        <a href="/web/search/">SEARCH</a>
+      </nav>
+
+      <main class="web-main">
+        <slot />
+      </main>
+
+      <footer class="web-footer">
+        <div class="web-badges">
+          <span class="badge badge-pants">PANTS PLACE 98</span>
+          <span class="badge badge-wasm">POWERED BY WASM</span>
+          <span class="badge badge-ie">BEST VIEWED IN IE4</span>
+          <span class="badge badge-ring">COOL WEBRING</span>
+        </div>
+        <div class="web-counter">
+          You are visitor number
+          <span id="hit-counter">004892</span>
+        </div>
+        <p>
+          © 1998 pants_the_person · <a href="/web/guestbook/">Sign my guestbook!</a> ·
+          <a href="/web/webring/">Webring</a> · <a href="/" target="_top">Back to the desktop</a>
+        </p>
+        <p class="web-small">
+          This is a loving parody of the 1998 web. Not affiliated with Microsoft, GeoCities, Tripod, or anyone else.
+        </p>
+      </footer>
+    </div>
+
+    <script is:inline>
+      (() => {
+        try {
+          const key = 'pp98:hits';
+          const value = Number(localStorage.getItem(key) ?? '4892') + 1;
+          localStorage.setItem(key, String(value));
+          const el = document.getElementById('hit-counter');
+          if (el) el.textContent = String(value).padStart(6, '0');
+        } catch {}
+      })();
+    </script>
+  </body>
+</html>

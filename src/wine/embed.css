@@ -1,0 +1,81 @@
+/*
+ * Embedded Wine-Assembly chrome.
+ *
+ * The upstream page is a complete Windows 98 desktop. Pants Place supplies
+ * the desktop, window frame and taskbar, so inside the iframe we keep only the
+ * guest screen. The rules mirror upstream's own `html.direct-launch` rules and
+ * add the pieces that only exist on an undirected desktop (taskbar, icons,
+ * launch dialog, debug panes).
+ */
+
+html.embed,
+html.embed body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #008080;
+}
+
+html.embed #shell {
+  margin: 0;
+  border: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: transparent;
+}
+
+html.embed #content {
+  height: 100%;
+  min-height: 0;
+}
+
+html.embed #screen-wrap {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+html.embed #titlebar,
+html.embed #toolbar,
+html.embed #log,
+html.embed #debug-peek,
+html.embed #taskbar,
+html.embed #start-menu,
+html.embed #desktop-icons,
+html.embed #readme-window,
+html.embed #build-stamp,
+html.embed #compile-status,
+html.embed #agent-handoff,
+html.embed #notify-icons,
+html.embed #app-picker,
+html.embed #launch-task-buttons,
+html.embed .wa-launch,
+html.embed #page-fullscreen-hint,
+html.embed #browser-fullscreen-consent,
+html.embed #frozen-status,
+html.embed #frozen-toggle,
+html.embed #frozen-step-btn {
+  display: none !important;
+}
+
+html.embed body {
+  display: block;
+}
+
+html.embed #screen {
+  image-rendering: pixelated;
+}
+
+html.embed #mobile-keyboard-proxy {
+  opacity: 0;
+}
+
+/* The guest canvas already handles its own cursor; the iframe itself should
+   never show a text caret or a selection highlight around it. */
+html.embed ::selection {
+  background: transparent;
+}

@@ -1,0 +1,97 @@
+---
+import WebLayout from '../../../layouts/WebLayout.astro';
+import { entryUrl, formatShortDate, getBlog, getNews } from '../../../lib/web';
+
+const news = await getNews();
+const blog = await getBlog();
+
+const index = [
+  { title: 'Pants Place 98 — Home', url: '/web/', text: 'homepage pants 486 midi webring guestbook' },
+  { title: 'Pants News', url: '/web/news/', text: 'news archive updates overclocking y2k webring midi' },
+  { title: 'The Pants Log', url: '/web/blog/', text: 'blog devlog computers web winamp geocities 486 midi' },
+  { title: 'pants_the_person // GeoCities', url: '/web/~pants/', text: 'personal homepage 486 sound blaster doom midi' },
+  { title: "Kylie's Cyber Sanctuary", url: '/web/~kylie/', text: 'kylie diary cat pentium win32 irs efnet' },
+  { title: 'Guestbook', url: '/web/guestbook/', text: 'sign guestbook messages friends' },
+  { title: 'The Cool Webring', url: '/web/webring/', text: 'webring members previous next random' },
+  { title: 'Downloads', url: '/web/downloads/', text: 'midi ogg wallpapers buttons downloads' },
+  ...news.map((entry) => ({
+    title: entry.data.title,
+    url: entryUrl(entry),
+    text: `${entry.data.summary} ${formatShortDate(entry.data.date)} news ${entry.body ?? ''}`,
+  })),
+  ...blog.map((entry) => ({
+    title: entry.data.title,
+    url: entryUrl(entry),
+    text: `${entry.data.summary} ${formatShortDate(entry.data.date)} blog ${entry.body ?? ''}`,
+  })),
+];
+---
+
+<WebLayout title="AltaVista Search — PANTS PLACE 98" description="Search the World Wide Web.">
+  <div style="text-align:center;margin-bottom:10px">
+    <div style="font-family:Impact;font-size:36px;color:#0000ff;letter-spacing:1px">AltaVista</div>
+    <div style="font-family:'Courier New',monospace;font-size:12px;color:#555">The most powerful and useful guide to the World Wide Web.</div>
+  </div>
+
+  <form class="web-search" action="/web/search/" method="get">
+    <input name="q" placeholder="Search the web..." autofocus />
+    <button type="submit">Search</button>
+  </form>
+
+  <div id="search-summary"></div>
+  <ul class="web-results" id="search-results"></ul>
+
+  <div id="search-tips">
+    <h2>Popular Searches</h2>
+    <ul>
+      <li><a href="/web/search/?q=486">486</a></li>
+      <li><a href="/web/search/?q=midi">MIDI</a></li>
+      <li><a href="/web/search/?q=winamp">Winamp</a></li>
+      <li><a href="/web/search/?q=geocities">GeoCities</a></li>
+      <li><a href="/web/search/?q=webring">Webring</a></li>
+    </ul>
+  </div>
+
+  <script type="application/json" id="search-index" set:html={JSON.stringify(index)} />
+  <script is:inline>
+    (() => {
+      const data = JSON.parse(document.getElementById('search-index').textContent || '[]');
+      const params = new URLSearchParams(location.search);
+      const query = (params.get('q') || '').trim().toLowerCase();
+      const results = document.getElementById('search-results');
+      const summary = document.getElementById('search-summary');
+      const tips = document.getElementById('search-tips');
+
+      if (!query) {
+        summary.innerHTML = '<p>Enter a search term above. Try <b>486</b>, <b>MIDI</b>, or <b>Winamp</b>.</p>';
+        return;
+      }
+
+      const matches = data.filter((item) => {
+        const haystack = (item.title + ' ' + item.text).toLowerCase();
+        return query.split(/\s+/).every((word) => haystack.includes(word));
+      });
+
+      tips.style.display = 'none';
+      summary.innerHTML = `<p>Found <b>${matches.length}</b> result(s) for <b>${query.replace(/</g, '&lt;')}</b>.</p>`;
+
+      if (!matches.length) {
+        results.innerHTML = '<li>No documents matched your query. Try a different word, or <a href="/web/">go back home</a>.</li>';
+        return;
+      }
+
+      for (const item of matches) {
+        const li = document.createElement('li');
+        const link = document.createElement('a');
+        link.href = item.url;
+        link.textContent = item.title;
+        const desc = document.createElement('div');
+        desc.style.fontSize = '13px';
+        desc.style.color = '#333';
+        desc.textContent = item.text.replace(/\s+/g, ' ').slice(0, 180);
+        li.append(link, desc);
+        results.appendChild(li);
+      }
+    })();
+  </script>
+</WebLayout>

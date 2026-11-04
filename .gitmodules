@@ -1,0 +1,3 @@
+[submodule "vendor/wine-assembly"]
+	path = vendor/wine-assembly
+	url = https://github.com/vgrichina/berrry-wine

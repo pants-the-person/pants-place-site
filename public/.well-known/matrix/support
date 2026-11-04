@@ -1,0 +1,13 @@
+{
+  "instances": [
+    {
+      "base_url": "https://matrix.pants.place",
+      "contacts": [
+        {
+          "role": "m.role.admin",
+          "matrix_id": "@admin:pants.place"
+        }
+      ]
+    }
+  ]
+}

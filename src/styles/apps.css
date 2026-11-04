@@ -1,0 +1,957 @@
+@import '@fontsource/vt323/400.css';
+
+/* ---------- explorer ---------- */
+.explorer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 4px;
+  padding: 4px;
+}
+
+.explorer-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 3px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  min-height: 64px;
+  text-align: center;
+  font-size: 11px;
+  color: #000;
+}
+
+.explorer-item:hover {
+  background: rgba(0, 0, 128, 0.08);
+}
+
+.explorer-item.selected {
+  background: var(--navy);
+  color: #fff;
+}
+
+.explorer-item span {
+  max-width: 92px;
+  overflow: hidden;
+  word-break: break-word;
+  line-height: 12px;
+}
+
+.explorer-section-title {
+  font-weight: 700;
+  margin: 6px 2px 2px;
+  border-bottom: 1px solid var(--shadow);
+  padding-bottom: 2px;
+}
+
+/* ---------- internet explorer ---------- */
+.ie-progress {
+  height: 100%;
+  width: 35%;
+  background: linear-gradient(90deg, transparent, var(--navy), transparent);
+  animation: ie-progress 1s linear infinite;
+}
+
+@keyframes ie-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+
+/* ---------- winamp ---------- */
+.winamp,
+.winamp-playlist,
+.winamp-eq {
+  background: #1b1b1b;
+  color: #00e000;
+  font-family: 'VT323', monospace;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 3px;
+  gap: 3px;
+  outline: none;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 22%, transparent 78%, rgba(0, 0, 0, 0.5)),
+    repeating-linear-gradient(90deg, #242424 0 1px, #1a1a1a 1px 3px);
+}
+
+.winamp-top,
+.playlist-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 18px;
+  padding: 0 4px;
+  color: #d8d8d8;
+  background: linear-gradient(180deg, #5a5a5a, #2b2b2b);
+  border: 1px solid #000;
+  font-family: 'Pixelated MS Sans Serif', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.winamp-brand {
+  font-weight: 700;
+  color: #fff;
+}
+
+.winamp-mode {
+  color: #00e000;
+}
+
+.winamp-mini {
+  margin-left: auto;
+  color: #ffb000;
+  font-size: 9px;
+}
+
+.winamp-display {
+  flex: 1;
+  min-height: 54px;
+  padding: 1px;
+  background: #000;
+  border: 1px solid #3a3a3a;
+  box-shadow: inset 0 0 0 1px #000;
+}
+
+.winamp-lcd {
+  position: relative;
+  height: 100%;
+  min-height: 52px;
+  padding: 2px 4px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(0, 255, 0, 0.08), transparent 65%),
+    #000;
+}
+
+.lcd-time {
+  position: absolute;
+  left: 4px;
+  top: -1px;
+  font-size: 30px;
+  line-height: 30px;
+  color: #00e000;
+  text-shadow: 0 0 4px rgba(0, 224, 0, 0.7);
+}
+
+.lcd-info {
+  position: absolute;
+  right: 4px;
+  top: 3px;
+  display: flex;
+  gap: 5px;
+  font-size: 10px;
+  color: #00b000;
+}
+
+.lcd-title {
+  position: absolute;
+  left: 92px;
+  right: 92px;
+  top: 7px;
+  height: 18px;
+  overflow: hidden;
+  white-space: nowrap;
+  color: #00e000;
+  font-size: 14px;
+}
+
+.lcd-title span {
+  display: inline-block;
+  padding-left: 100%;
+  animation: lcd-scroll 12s linear infinite;
+}
+
+@keyframes lcd-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+.lcd-spectrum {
+  position: absolute;
+  left: 96px;
+  right: 4px;
+  bottom: 2px;
+  height: 20px;
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  opacity: 0.9;
+}
+
+.lcd-spectrum i {
+  flex: 1;
+  background: linear-gradient(180deg, #aaffaa, #00e000 50%, #006600);
+  min-height: 2px;
+  transition: height 80ms linear;
+}
+
+.lcd-mode {
+  display: none;
+}
+
+.winamp-scrub {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 16px;
+  font-size: 11px;
+  color: #00b000;
+}
+
+.winamp-scrub input[type='range'],
+.winamp-volume input[type='range'],
+.eq-band input[type='range'] {
+  flex: 1;
+  height: 8px;
+  accent-color: #00e000;
+}
+
+.winamp-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.winamp-transport {
+  display: flex;
+  gap: 2px;
+}
+
+.winamp-transport button,
+.winamp-toggles button,
+.playlist-actions button,
+.eq-power {
+  min-width: 0;
+  min-height: 0;
+  height: 20px;
+  padding: 0 4px;
+  background: #2f2f2f;
+  color: #c8c8c8;
+  border: 1px solid #000;
+  box-shadow:
+    inset -1px -1px #000,
+    inset 1px 1px #6a6a6a;
+  font-family: 'Pixelated MS Sans Serif', monospace;
+  font-size: 10px;
+}
+
+.winamp-transport button:active,
+.winamp-toggles button.on,
+.playlist-actions button:active,
+.eq-power.on {
+  background: #004c00;
+  color: #00e000;
+  box-shadow:
+    inset 1px 1px #000,
+    inset -1px -1px #6a6a6a;
+}
+
+.winamp-volume {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  font-size: 10px;
+  color: #888;
+}
+
+.winamp-volume input {
+  width: 76px;
+}
+
+.winamp-toggles {
+  display: flex;
+  gap: 2px;
+}
+
+.winamp-toggles button {
+  flex: 1;
+  height: 16px;
+  font-size: 9px;
+}
+
+/* ---------- winamp playlist / eq ---------- */
+.winamp-playlist,
+.winamp-eq {
+  gap: 4px;
+}
+
+.playlist-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #000;
+  border: 1px solid #3a3a3a;
+  font-size: 15px;
+}
+
+.playlist-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 19px;
+  padding: 0 4px;
+  background: transparent;
+  color: #00b000;
+  border: 0;
+  box-shadow: none;
+  text-align: left;
+  font-family: 'VT323', monospace;
+  font-size: 15px;
+}
+
+.playlist-row:hover {
+  background: #003300;
+}
+
+.playlist-row.selected {
+  background: #003f00;
+  color: #b6ffb6;
+}
+
+.playlist-row.playing {
+  color: #00ff00;
+}
+
+.pl-index {
+  width: 24px;
+  color: #007700;
+}
+.pl-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pl-time {
+  width: 40px;
+  text-align: right;
+  font-size: 14px;
+}
+.pl-kind {
+  width: 30px;
+  text-align: right;
+  color: #008800;
+  font-size: 12px;
+}
+
+.playlist-actions {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.playlist-actions button {
+  flex: 1;
+  min-width: 48px;
+}
+
+.playlist-status {
+  height: 16px;
+  font-size: 12px;
+  color: #00b000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eq-sliders {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 4px;
+  background: #000;
+  border: 1px solid #3a3a3a;
+}
+
+.eq-band {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+  justify-content: flex-end;
+  font-size: 11px;
+  color: #00b000;
+}
+
+.eq-band input[type='range'] {
+  width: 100%;
+  height: 8px;
+  transform: rotate(-90deg) translateX(-28px);
+  transform-origin: center;
+  margin-bottom: 34px;
+}
+
+.eq-value {
+  font-size: 12px;
+  color: #00e000;
+}
+
+.eq-label {
+  font-size: 10px;
+  color: #008800;
+}
+
+/* ---------- DOS terminal ---------- */
+.dos-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #000;
+  margin: 2px 4px;
+  border: 1px solid #808080;
+  box-shadow: inset 1px 1px #000, inset -1px -1px #404040;
+}
+
+.dos-screen {
+  width: 648px;
+  height: 408px;
+  padding: 4px;
+  background: #000;
+  transform-origin: center center;
+  flex: 0 0 auto;
+}
+
+.dos-text {
+  width: 640px;
+  height: 400px;
+  white-space: pre;
+  font-family: 'Px437 IBM VGA 8x16', monospace;
+  font-size: 16px;
+  line-height: 16px;
+  letter-spacing: 0;
+  color: #c0c0c0;
+  background: #000;
+  overflow: hidden;
+  -webkit-font-smoothing: none;
+}
+
+.dos-text div {
+  height: 16px;
+  line-height: 16px;
+  white-space: pre;
+}
+
+.dos-text span {
+  white-space: pre;
+}
+
+.dos-screen.photox .dos-text,
+.dos-screen.phosphor .dos-text {
+  filter: sepia(1) hue-rotate(62deg) saturate(2.6) brightness(1.15);
+}
+
+.dos-screen canvas {
+  display: none;
+}
+
+.dos-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.86);
+  color: #00ff66;
+  font-family: 'Px437 IBM VGA 8x16', monospace;
+  font-size: 16px;
+  z-index: 3;
+}
+
+.dos-error {
+  color: #ffb000;
+  font-family: 'Px437 IBM VGA 8x16', monospace;
+  font-size: 16px;
+  padding: 20px;
+  text-align: center;
+}
+
+.dos-mobile-input {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 2px;
+  height: 2px;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font-size: 16px;
+  color: transparent;
+  z-index: 2;
+}
+
+@media (pointer: coarse) {
+  .dos-mobile-input {
+    inset: 0;
+    left: 0;
+    bottom: auto;
+    width: 100%;
+    height: 100%;
+    pointer-events: auto;
+    cursor: default;
+  }
+}
+
+/* ---------- paint ---------- */
+.paint-palette {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px;
+  flex: 0 0 auto;
+  background: var(--surface);
+}
+
+.paint-current {
+  width: 24px;
+  height: 24px;
+  margin-right: 4px;
+  border: 1px solid #000;
+  box-shadow: inset -1px -1px #808080, inset 1px 1px #fff;
+}
+
+.paint-swatch {
+  width: 17px;
+  height: 17px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid #000;
+  box-shadow: inset -1px -1px #808080, inset 1px 1px #fff;
+}
+
+.paint-swatch.selected {
+  outline: 2px solid var(--navy);
+  outline-offset: 1px;
+}
+
+.paint-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #808080;
+  margin: 2px 4px;
+  padding: 8px;
+}
+
+.paint-canvas {
+  background: #fff;
+  cursor: crosshair;
+  image-rendering: pixelated;
+  box-shadow: 0 0 0 1px #000;
+  max-width: 100%;
+  height: auto;
+  touch-action: none;
+}
+
+/* ---------- minesweeper ---------- */
+.minesweeper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--surface);
+  padding: 2px;
+  gap: 4px;
+}
+
+.mines-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px;
+  background: var(--surface);
+  box-shadow:
+    inset 1px 1px var(--shadow),
+    inset -1px -1px var(--white),
+    inset 2px 2px var(--black),
+    inset -2px -2px var(--surface-light);
+}
+
+.mines-counter {
+  width: 48px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: #000;
+  color: #ff0000;
+  font-family: 'VT323', monospace;
+  font-size: 26px;
+  line-height: 1;
+  border: 1px solid #808080;
+}
+
+.mines-face {
+  width: 32px;
+  height: 32px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  color: #000;
+  text-shadow: none;
+  font-family: var(--font-ui);
+  background: var(--surface);
+  box-shadow:
+    inset -1px -1px var(--black),
+    inset 1px 1px var(--white),
+    inset -2px -2px var(--shadow),
+    inset 2px 2px var(--surface-light);
+}
+
+.mines-face img {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+.mines-board-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 4px;
+  box-shadow:
+    inset 1px 1px var(--shadow),
+    inset -1px -1px var(--white),
+    inset 2px 2px var(--black),
+    inset -2px -2px var(--surface-light);
+}
+
+.mines-board {
+  display: grid;
+  gap: 0;
+  background: var(--shadow);
+  border: 2px solid var(--shadow);
+}
+
+.mine-cell {
+  width: 16px;
+  height: 16px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  line-height: 1;
+  font-family: 'Pixelated MS Sans Serif', monospace;
+  background: var(--surface);
+  border: 0;
+  box-shadow:
+    inset -1px -1px var(--black),
+    inset 1px 1px var(--white),
+    inset -2px -2px var(--shadow),
+    inset 2px 2px var(--surface-light);
+}
+
+.mine-cell.revealed {
+  box-shadow: inset 1px 1px var(--shadow);
+  background: var(--surface);
+}
+
+.mine-cell.mine {
+  background: #ff0000;
+}
+
+.mine-cell.flagged {
+  color: #ff0000;
+}
+
+.mine-cell img {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.mine-cell.revealed:nth-child(8n) {
+  color: #0000ff;
+}
+
+.mines-levels {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 0;
+}
+
+.mines-levels button {
+  min-width: 0;
+  min-height: 0;
+  height: 19px;
+  padding: 0 5px;
+  font-size: 10px;
+}
+
+.mines-levels button.active {
+  box-shadow:
+    inset 1px 1px var(--shadow),
+    inset -1px -1px var(--white);
+}
+
+/* ---------- calculator ---------- */
+.calc {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 2px;
+  gap: 4px;
+  background: var(--surface);
+}
+
+.calc-display {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 6px;
+  background: #fff;
+  font-family: 'Px437 IBM VGA 8x16', monospace;
+  font-size: 20px;
+  overflow: hidden;
+  box-shadow:
+    inset 1px 1px var(--shadow),
+    inset -1px -1px var(--surface-light),
+    inset 2px 2px var(--black),
+    inset -2px -2px var(--white);
+}
+
+.calc-memory {
+  height: 14px;
+  padding: 0 4px;
+  font-size: 10px;
+  color: #404040;
+  box-shadow: inset 1px 1px var(--shadow), inset -1px -1px var(--white);
+}
+
+.calc-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+}
+
+.calc-grid button {
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  font-size: 13px;
+  padding: 0;
+  color: #000;
+  text-shadow: none;
+}
+
+.calc-grid button:nth-child(4n),
+.calc-grid button:nth-child(8n) {
+  font-weight: 700;
+}
+
+/* ---------- display properties ---------- */
+.display-props {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 4px;
+  gap: 8px;
+  background: var(--surface);
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding-left: 4px;
+}
+
+.tabs button {
+  min-width: 0;
+  min-height: 0;
+  height: 22px;
+  padding: 0 10px;
+  border-bottom: 0;
+  box-shadow:
+    inset -1px 0 var(--black),
+    inset 1px 1px var(--white),
+    inset -2px 0 var(--shadow),
+    inset 2px 2px var(--surface-light);
+}
+
+.tabs button.active {
+  background: var(--surface);
+  position: relative;
+  top: 1px;
+  padding-top: 2px;
+  font-weight: 700;
+}
+
+.display-preview {
+  height: 150px;
+  padding: 6px;
+  background: var(--surface);
+  flex: 0 0 auto;
+}
+
+.display-section {
+  flex: 1;
+  padding: 8px;
+  background: var(--surface);
+  box-shadow:
+    inset 1px 1px var(--white),
+    inset -1px -1px var(--shadow);
+}
+
+.display-section label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+
+.display-section select {
+  width: 100%;
+  height: 22px;
+}
+
+.display-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.display-buttons button {
+  min-width: 75px;
+}
+
+.tabs button,
+.display-buttons button,
+.help-content button,
+.mines-levels button {
+  color: #000;
+  text-shadow: none;
+}
+
+/* ---------- help ---------- */
+.help-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--surface);
+}
+
+.help-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+}
+
+.help-sidebar {
+  width: 170px;
+  flex: 0 0 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: auto;
+  padding: 4px;
+  background: #fff;
+  box-shadow:
+    inset 1px 1px var(--shadow),
+    inset -1px -1px var(--surface-light),
+    inset 2px 2px var(--black),
+    inset -2px -2px var(--white);
+}
+
+.help-sidebar-title {
+  font-weight: 700;
+  padding: 2px 4px 6px;
+  border-bottom: 1px solid var(--shadow);
+  margin-bottom: 3px;
+}
+
+.help-topic {
+  min-width: 0;
+  min-height: 0;
+  height: 22px;
+  padding: 0 4px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  font-size: 11px;
+}
+
+.help-topic:hover,
+.help-topic.active {
+  background: var(--navy);
+  color: #fff;
+}
+
+.help-content {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 12px 14px;
+  background: #fff;
+  box-shadow:
+    inset 1px 1px var(--shadow),
+    inset -1px -1px var(--surface-light),
+    inset 2px 2px var(--black),
+    inset -2px -2px var(--white);
+  user-select: text;
+}
+
+.help-content h2 {
+  font-size: 16px;
+  margin: 0 0 10px;
+}
+
+.help-content p,
+.help-content li {
+  font-size: 12px;
+  line-height: 18px;
+  margin: 0 0 8px;
+}
+
+.help-content code {
+  background: #eee;
+  padding: 1px 3px;
+}
+
+.help-content button {
+  min-height: 23px;
+  margin-top: 6px;
+}
+
+@media (max-width: 1023px) {
+  .dos-wrap {
+    align-items: flex-start;
+  }
+  .dos-screen {
+    transform-origin: top center;
+  }
+}

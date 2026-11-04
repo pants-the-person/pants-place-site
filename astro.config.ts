@@ -1,23 +1,26 @@
 import { defineConfig } from 'astro/config';
+import preact from '@astrojs/preact';
 import sitemap from '@astrojs/sitemap';
-import UnoCSS from 'unocss/astro';
+import mediaManifest from './src/integrations/media-manifest';
 
 export default defineConfig({
-  // used to generate images
-  site:
-    process.env.VERCEL_ENV === 'production'
-      ? 'https://brutal.elian.codes/'
-      : process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}/`
-      : 'https://localhost:3000/',
+  site: 'https://pants.place',
   trailingSlash: 'ignore',
+  devToolbar: { enabled: false },
   integrations: [
-    sitemap(),
-    UnoCSS({ injectReset: true }),
-    ],
+    preact(),
+    mediaManifest(),
+    sitemap({
+      filter: (page) => !page.includes('/web/cannot') && !page.includes('/web/guestbook'),
+    }),
+  ],
   vite: {
-    optimizeDeps: {
-      exclude: ['@resvg/resvg-js'],
+    build: {
+      target: 'es2022',
+      // 98.css contains a legacy `@media (not(hover))` block that Lightning CSS rejects.
+      // Keeping CSS unminified is cheaper than forking the stylesheet for a few KB.
+      cssMinify: false,
+      chunkSizeWarningLimit: 1200,
     },
   },
 });

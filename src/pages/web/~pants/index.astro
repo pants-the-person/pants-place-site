@@ -1,0 +1,70 @@
+---
+import WebLayout from '../../../layouts/WebLayout.astro';
+---
+
+<WebLayout title="pants_the_person // GeoCities" description="The older, louder, more animated homepage of pants_the_person.">
+  <div style="text-align:center">
+    <h1 style="font-size:34px;color:#0000ff;text-shadow:2px 2px 0 #ffff00">pants_the_person</h1>
+    <p style="font-family:'Courier New',monospace;font-size:13px">
+      ~*~ SiliconValley/Byte/1998 ~*~
+    </p>
+    <marquee scrollamount="6" style="background:#000;color:#00ff00;font-family:'Courier New',monospace;padding:3px;border:2px inset #808080">
+      WELCOME TO MY OLD HOMEPAGE ★ PLEASE SIGN THE GUESTBOOK ★ DOWNLOAD MY MIDI FILES ★ 486 FOREVER ★
+    </marquee>
+  </div>
+
+  <hr />
+
+  <h2>About Me</h2>
+  <p>
+    My name is <b>pants</b> and I am a computer enthusiast from the internet. I run a 486 DX2-66
+    with 32 MB of RAM and a Sound Blaster 16. I like DOS games, MIDI files, and taking apart
+    old machines to see what is inside.
+  </p>
+  <p>
+    This page was made with <b>Microsoft FrontPage Express</b> and a lot of manual table editing.
+    It is best viewed at 800x600. If the background is not tiled correctly, refresh.
+  </p>
+
+  <h2>My Machine</h2>
+  <table style="border-collapse:collapse;width:100%;font-family:'Courier New',monospace;font-size:14px;background:#ffffe0">
+    <tr style="background:#000080;color:#fff"><th style="border:1px solid #000;padding:3px;text-align:left">Part</th><th style="border:1px solid #000;padding:3px;text-align:left">Spec</th></tr>
+    <tr><td style="border:1px solid #999;padding:3px">CPU</td><td style="border:1px solid #999;padding:3px">486 DX2-66 (currently at 66 MHz)</td></tr>
+    <tr><td style="border:1px solid #999;padding:3px">RAM</td><td style="border:1px solid #999;padding:3px">32 MB EDO</td></tr>
+    <tr><td style="border:1px solid #999;padding:3px">Video</td><td style="border:1px solid #999;padding:3px">S3 Trio64, 2 MB</td></tr>
+    <tr><td style="border:1px solid #999;padding:3px">Sound</td><td style="border:1px solid #999;padding:3px">Sound Blaster 16</td></tr>
+    <tr><td style="border:1px solid #999;padding:3px">Modem</td><td style="border:1px solid #999;padding:3px">US Robotics 56k</td></tr>
+    <tr><td style="border:1px solid #999;padding:3px">OS</td><td style="border:1px solid #999;padding:3px">Windows 98 Second Edition</td></tr>
+  </table>
+
+  <h2>My Favorite Things</h2>
+  <ul>
+    <li><b>Game:</b> DOOM (shareware, obviously)</li>
+    <li><b>Program:</b> Winamp 2.8</li>
+    <li><b>Website:</b> <a href="/web/~kylie/">Kylie's Cyber Sanctuary</a></li>
+    <li><b>Food:</b> pizza rolls</li>
+    <li><b>Sound:</b> the modem handshake</li>
+  </ul>
+
+  <h2>MIDI Jukebox</h2>
+  <p>Press a button and my theme song will open in Winamp on the desktop.</p>
+  <p>
+    <button type="button" onclick="parent.postMessage({type:'pants:play', id:'pants-theme-mid'}, '*')">▶ Pants Theme</button>
+    <button type="button" onclick="parent.postMessage({type:'pants:play', id:'dialup-blues-mid'}, '*')">▶ Dial-Up Blues</button>
+    <button type="button" onclick="parent.postMessage({type:'pants:play', id:'overdrive-486-mid'}, '*')">▶ 486 Overdrive</button>
+  </p>
+  <p><a href="/web/downloads/">Download the MIDI files »</a></p>
+
+  <h2>Cool Links</h2>
+  <ul>
+    <li><a href="/web/webring/">The Cool Webring</a> — previous | random | next</li>
+    <li><a href="/web/search/">AltaVista</a> — search the whole web</li>
+    <li><a href="/web/guestbook/">My guestbook</a> — please sign it</li>
+    <li><a href="/web/news/">Pants News</a> — updates and overclocking reports</li>
+  </ul>
+
+  <div style="text-align:center;margin-top:18px">
+    <span class="web-under-construction">UNDER CONSTRUCTION</span>
+    <p style="font-family:'Courier New',monospace;font-size:12px">This page is always under construction.</p>
+  </div>
+</WebLayout>

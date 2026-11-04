@@ -1,0 +1,101 @@
+---
+import WebLayout from '../../../layouts/WebLayout.astro';
+
+const entries = [
+  { name: 'kylie', date: '03/21/1999 16:42', message: 'your new layout is SO COOL. the tiled background is perfect. added you to my links!!' },
+  { name: 'ultimateshades', date: '03/19/1999 09:15', message: 'nice site. your 486 benchmarks are wrong though. email me.' },
+  { name: 'modem_mike', date: '02/28/1999 23:08', message: 'found you through the webring. love the midi jukebox. keep it up!' },
+  { name: 'pants_the_person', date: '01/02/1999 11:20', message: 'testing the guestbook. it works. please ignore.' },
+  { name: 'anonymous', date: '12/24/1998 18:55', message: 'merry christmas from a fellow 486 owner' },
+  { name: 'kylie', date: '11/05/1998 20:31', message: 'first!! (on the new guestbook)' },
+];
+---
+
+<WebLayout title="Guestbook — PANTS PLACE 98" description="Sign the Pants Place guestbook.">
+  <h1>📖 SIGN MY GUESTBOOK!</h1>
+  <p>
+    Thanks for visiting. Leave a message so I know you were here. No spam, no chain letters,
+    and please do not ask me to fix your sound card.
+  </p>
+
+  <div class="web-guestbook" id="guestbook-entries">
+    {entries.map((entry) => (
+      <div class="entry">
+        <div class="meta">
+          <b>{entry.name}</b> · {entry.date}
+        </div>
+        <div class="message">{entry.message}</div>
+      </div>
+    ))}
+  </div>
+
+  <h2>Leave a message</h2>
+  <form class="web-form" id="guestbook-form">
+    <label>
+      Name:<br />
+      <input name="name" maxlength="40" required placeholder="retro_hacker98" />
+    </label>
+    <label>
+      Message:<br />
+      <textarea name="message" rows="4" maxlength="400" required placeholder="Your message here..."></textarea>
+    </label>
+    <button type="submit">Sign Guestbook</button>
+    <p id="guestbook-status" style="margin:0;color:#008000"></p>
+  </form>
+
+  <p style="margin-top:16px">
+    <a href="/web/">« Back to the homepage</a> ·
+    <a href="/web/webring/">Visit the webring</a>
+  </p>
+
+  <script is:inline>
+    (() => {
+      const KEY = 'pp98:guestbook';
+      const list = document.getElementById('guestbook-entries');
+      const form = document.getElementById('guestbook-form');
+      const status = document.getElementById('guestbook-status');
+
+      function addEntry(entry, prepend) {
+        const wrap = document.createElement('div');
+        wrap.className = 'entry';
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        const name = document.createElement('b');
+        name.textContent = entry.name;
+        meta.append(name, ' · ', entry.date);
+        const message = document.createElement('div');
+        message.className = 'message';
+        message.textContent = entry.message;
+        wrap.append(meta, message);
+        if (prepend && list.firstChild) list.insertBefore(wrap, list.firstChild);
+        else list.appendChild(wrap);
+      }
+
+      try {
+        const saved = JSON.parse(localStorage.getItem(KEY) || '[]');
+        for (const entry of saved) addEntry(entry, true);
+      } catch {}
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const data = new FormData(form);
+        const name = String(data.get('name') || '').trim().slice(0, 40) || 'anonymous';
+        const message = String(data.get('message') || '').trim().slice(0, 400);
+        if (!message) return;
+        const entry = {
+          name,
+          message,
+          date: new Date().toLocaleString('en-US', { hour12: false }),
+        };
+        try {
+          const saved = JSON.parse(localStorage.getItem(KEY) || '[]');
+          saved.unshift(entry);
+          localStorage.setItem(KEY, JSON.stringify(saved.slice(0, 100)));
+        } catch {}
+        addEntry(entry, true);
+        form.reset();
+        status.textContent = 'Thanks for signing! Your message is stored in this browser.';
+      });
+    })();
+  </script>
+</WebLayout>

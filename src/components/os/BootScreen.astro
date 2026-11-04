@@ -1,0 +1,68 @@
+<div id="boot-post" class="boot-screen">
+  <div>Pants BIOS v4.51PG  (C) 1998 Pants Technologies</div>
+  <div>486DX2-66 CPU detected      [ OK ]</div>
+  <div>Memory Test: 32768K        [ OK ]</div>
+  <div>Detecting IDE drives ...   [ OK ]</div>
+  <div>Sound Blaster 16 at 220h   [ OK ]</div>
+  <div>FreeDOS VM host: v86/WASM  [ OK ]</div>
+  <br />
+  <div>Starting Pants Place 98...</div>
+  <div class="blink">Press DEL to enter SETUP (not really)</div>
+  <div class="energy">ENERGY STAR COMPLIANT</div>
+</div>
+
+<div id="boot-splash" class="splash-screen hidden">
+  <div class="splash-card">
+    <div class="splash-title">Pants Place 98</div>
+    <div class="splash-sub">SECOND EDITION</div>
+    <div class="splash-bar"><span /></div>
+    <div style="margin-top: 14px; font-size: 11px; letter-spacing: 1px">
+      A complete retro desktop in your browser
+    </div>
+  </div>
+</div>
+
+<script is:inline>
+  (() => {
+    const post = document.getElementById('boot-post');
+    const splash = document.getElementById('boot-splash');
+    const force = new URLSearchParams(location.search).has('boot');
+    let done = false;
+
+    const finish = () => {
+      if (done) return;
+      done = true;
+      post?.classList.add('hidden');
+      splash?.classList.add('hidden');
+      try {
+        sessionStorage.setItem('pp98:booted', '1');
+      } catch {}
+    };
+
+    if (!force && sessionStorage.getItem('pp98:booted')) {
+      finish();
+      return;
+    }
+
+    const skip = () => finish();
+    window.addEventListener('pointerdown', skip, { once: true });
+    window.addEventListener('keydown', skip, { once: true });
+
+    setTimeout(() => {
+      if (done) return;
+      post?.classList.add('hidden');
+      splash?.classList.remove('hidden');
+    }, 1250);
+
+    setTimeout(finish, 2800);
+  })();
+</script>
+
+<noscript>
+  <style>
+    #boot-post,
+    #boot-splash {
+      display: none !important;
+    }
+  </style>
+</noscript>
