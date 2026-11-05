@@ -41,7 +41,7 @@ ABOUT THIS MACHINE
   RAM........... 32 MB (the FreeDOS VM gets all of it)
   Display....... 1024x768, 16-bit color
   Sound......... Sound Blaster 16 / General MIDI
-  Browser....... Internet Explorer 4.0
+  Browser....... Internet Explorer 5.0
   Media player.. Winamp 2.8
 
 This is an unofficial fan project. Windows 98, Internet Explorer and

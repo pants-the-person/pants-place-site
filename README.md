@@ -5,7 +5,7 @@ A functional Windows 98-style desktop that runs entirely in the browser.
 - **Astro 7 + Preact** shell with a real window manager, taskbar, Start menu, desktop icons, dialogs and persistent settings.
 - **MS-DOS Prompt** running a real **FreeDOS 7.10** virtual machine in **v86 / WebAssembly**. Type `VER`, `DIR`, `MEM`, `INVADERS`, `SNAKE` or `TETRIS`.
 - **Winamp 2.8** clone with playlist, 10-band EQ and spectrum analyser. Plays **MIDI** through a General MIDI SoundFont and **OGG** through the Web Audio API.
-- **Internet Explorer 4** clone browsing a fake 1998 internet at `/web/` with news, a devlog, guestbook, webring, downloads and an AltaVista-style search. It can also browse archived real websites through **The Old Net**, with a year selector, URL tracking and Copy Link.
+- **Internet Explorer 5** clone browsing a fake 1998 internet at `/web/` with news, a devlog, guestbook, webring, downloads and an AltaVista-style search. It can also browse archived real websites through **The Old Net**, with a year selector, URL tracking and Copy Link.
 - **The Old Net Webring** with 223 scraped retro sites and a filter/random button.
 - **UltimateShades**, a friend-site gaming shrine about Monkey Island and adventure games, alongside Kylie's Cyber Sanctuary (Final Fantasy, Gundam and raves).
 - **Explorer, Notepad, Paint, Minesweeper, Calculator, Display Properties and Help**.

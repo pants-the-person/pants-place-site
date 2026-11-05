@@ -8,11 +8,14 @@ import {
   renameNode,
   deleteNode,
   storageEstimate,
+  refreshFileSystem,
 } from '../../kernel/content';
 import { findNode, type VfsFile, type VfsFolder } from '../../kernel/vfs';
 import { openApp } from '../../kernel/windows';
 import { openWineDrop, openWinePath, openWineApp, wineEquivalents } from '../../kernel/wine';
 import { openContextMenu } from '../../kernel/menu';
+import MenuBar, { type AppMenu } from '../os/MenuBar';
+import { joinWindowsPath, quoteWindowsArg, splitWindowsPath } from '../../kernel/paths';
 import { showDialog } from '../../kernel/dialogs';
 import { playSound } from '../../kernel/audio';
 import { playTrackById } from '../../kernel/player';
@@ -32,6 +35,8 @@ export default function Explorer({ appProps, api }: AppProps) {
   const [view, setView] = useState<'icons' | 'details'>('icons');
   const [dragging, setDragging] = useState(false);
   const [storageLabel, setStorageLabel] = useState('Local filesystem');
+  const [addressInput, setAddressInput] = useState('C:\\');
+  const [showStatus, setShowStatus] = useState(true);
   const wineInputRef = useRef<HTMLInputElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,13 +48,17 @@ export default function Explorer({ appProps, api }: AppProps) {
   const entries = folder.type === 'folder' ? folder.children : [];
   const coarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
   const selectedEntry = entries.find((entry) => entry.name === selected) || null;
-  const parentPath = path.length ? `c:\\${path.join('\\')}` : 'c:\\';
+  const parentPath = joinWindowsPath(path, 'c');
 
   useEffect(() => {
     void updateStorageLabel();
   }, []);
 
-  const address = path.length ? `C:\\${path.join('\\')}` : 'C:\\';
+  const address = joinWindowsPath(path);
+
+  useEffect(() => {
+    setAddressInput(address);
+  }, [address]);
 
   function navigate(next: string[]) {
     setHistory((h) => [...h, path]);
@@ -233,9 +242,9 @@ export default function Explorer({ appProps, api }: AppProps) {
         ? [{
             label: 'Open With',
             children: [
-              { label: 'Notepad (Wine)', action: () => openWineApp('notepad', { args: entryPath, title: `${entry.name} - Notepad` }) },
-              { label: 'WordPad (Wine)', action: () => openWineApp('wordpad', { args: entryPath, title: `${entry.name} - WordPad` }) },
-              { label: 'Paint (Wine)', action: () => openWineApp('mspaint98', { args: entryPath, title: `${entry.name} - Paint` }) },
+              { label: 'Notepad (Wine)', action: () => openWineApp('notepad', { args: quoteWindowsArg(entryPath), title: `${entry.name} - Notepad` }) },
+              { label: 'WordPad (Wine)', action: () => openWineApp('wordpad', { args: quoteWindowsArg(entryPath), title: `${entry.name} - WordPad` }) },
+              { label: 'Paint (Wine)', action: () => openWineApp('mspaint98', { args: quoteWindowsArg(entryPath), title: `${entry.name} - Paint` }) },
             ],
           }]
         : []),
@@ -334,7 +343,7 @@ export default function Explorer({ appProps, api }: AppProps) {
     }
     if (entry.openWith === 'notepad' || entry.ext === 'txt' || entry.ext === 'md') {
       openWineApp('notepad', {
-        args: entryPath,
+        args: quoteWindowsArg(entryPath),
         title: `${entry.name} - Notepad`,
       });
       return;
@@ -369,18 +378,99 @@ export default function Explorer({ appProps, api }: AppProps) {
   const networkItems = [
     { name: 'PANTS-PC', description: 'This computer' },
     { name: 'KYLIE-PC', description: 'Kylie\\s Cyber Sanctuary' },
-    { name: 'ULTIMATE-SHADES', description: 'Overclocking shrine' },
+    { name: 'ULTIMATE-SHADES', description: 'Monkey Island gaming shrine' },
     { name: 'PANTS-NAS', description: 'Network storage (offline)' },
+  ];
+
+  const explorerMenus: AppMenu[] = [
+    {
+      label: 'File',
+      items: [
+        { label: 'New Window', action: () => openApp('computer', { path }) },
+        { separator: true },
+        { label: 'New Folder', icon: '/icons/folder.svg', action: () => void newFolder() },
+        { label: 'New Text Document', icon: '/icons/notepad.svg', action: () => void newTextFile() },
+        { label: 'Upload...', icon: '/icons/folder-open.svg', action: () => uploadInputRef.current?.click() },
+        { separator: true },
+        { label: 'Run with Wine...', icon: '/icons/wine.svg', action: () => wineInputRef.current?.click() },
+        { separator: true },
+        { label: 'Close', action: () => api.close() },
+      ],
+    },
+    {
+      label: 'Edit',
+      items: [
+        {
+          label: 'Copy Path',
+          disabled: !selectedEntry,
+          action: () => {
+            if (!selectedEntry) return;
+            const target = selectedEntry.path || `${parentPath}\\${selectedEntry.name}`;
+            void navigator.clipboard?.writeText(target).then(
+              () => api.notify(`Copied ${target}`),
+              () => api.notify('The browser denied clipboard access.'),
+            );
+          },
+        },
+        { label: 'Rename', disabled: !selectedEntry, action: () => void renameSelected() },
+        { label: 'Delete', disabled: !selectedEntry, action: () => void deleteSelected() },
+        { separator: true },
+        { label: 'Select All', action: () => api.notify('Select All is not available in this view.') },
+      ],
+    },
+    {
+      label: 'View',
+      items: [
+        {
+          label: 'View Mode',
+          children: [
+            { label: 'Large Icons', checked: view === 'icons', action: () => setView('icons') },
+            { label: 'Details', checked: view === 'details', action: () => setView('details') },
+          ],
+        },
+        { label: 'Status Bar', checked: showStatus, action: () => setShowStatus((value) => !value) },
+        { separator: true },
+        { label: 'Refresh', action: () => void refreshFileSystem() },
+      ],
+    },
+    {
+      label: 'Go',
+      items: [
+        { label: 'Back', disabled: !history.length, action: back },
+        { label: 'Up', disabled: !path.length, action: up },
+        { separator: true },
+        { label: 'My Computer', action: () => navigate([]) },
+        { label: 'My Documents', action: () => navigate(['My Documents']) },
+      ],
+    },
+    {
+      label: 'Favorites',
+      items: folders.map((name) => ({
+        label: name,
+        icon: '/icons/folder.svg',
+        action: () => navigate([name]),
+      })),
+    },
+    {
+      label: 'Tools',
+      items: [
+        { label: 'Find...', action: () => void showDialog({ title: 'Find: All Files', message: 'Use Start > Find > Files or Folders to search My Documents.', icon: '/icons/find.svg' }) },
+        { label: 'Folder Options...', action: () => void showDialog({ title: 'Folder Options', message: 'Folder options are set to Web style.', icon: '/icons/folder.svg' }) },
+      ],
+    },
+    {
+      label: 'Help',
+      items: [
+        { label: 'Help Topics', action: () => openApp('help') },
+        { separator: true },
+        { label: 'About Windows Explorer', action: () => void showDialog({ title: 'About Windows Explorer', message: 'Windows Explorer', detail: 'Pants Place 98 Second Edition', icon: '/icons/computer.svg' }) },
+      ],
+    },
   ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div class="menu-bar">
-        <button onClick={() => void showDialog({ title: 'My Computer', message: 'Windows Explorer', detail: 'Pants Place 98 Second Edition', icon: '/icons/computer.svg' })}>File</button>
-        <button onClick={() => void showDialog({ title: 'Edit', message: 'There is nothing to undo.', icon: '/icons/computer.svg' })}>Edit</button>
-        <button onClick={() => setView(view === 'icons' ? 'details' : 'icons')}>View</button>
-        <button onClick={() => openApp('help')}>Help</button>
-      </div>
+      <MenuBar menus={explorerMenus} />
 
       <div class="toolbar">
         <button onClick={back} disabled={!history.length}>
@@ -433,8 +523,17 @@ export default function Explorer({ appProps, api }: AppProps) {
         <span>Address</span>
         <input
           class="field"
-          readOnly
-          value={network ? 'My Network Places' : recycle ? 'Recycle Bin' : address}
+          value={network ? 'My Network Places' : recycle ? 'Recycle Bin' : addressInput}
+          readOnly={network || recycle}
+          onInput={(event) => setAddressInput((event.target as HTMLInputElement).value)}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' || network || recycle) return;
+            const value = (event.target as HTMLInputElement).value.trim();
+            if (!value) return;
+            const parts = splitWindowsPath(value);
+            navigate(parts);
+            setAddressInput(joinWindowsPath(parts));
+          }}
           style={{ flex: 1, height: '21px', color: '#000' }}
         />
       </div>
@@ -584,6 +683,7 @@ export default function Explorer({ appProps, api }: AppProps) {
         </div>
       </div>
 
+      {showStatus ? (
       <div class="status-bar">
         <div class="status-bar-field">
           {network ? `${networkItems.length} object(s)` : recycle ? '0 object(s)' : `${entries.length} object(s)`}
@@ -591,6 +691,7 @@ export default function Explorer({ appProps, api }: AppProps) {
         <div class="status-bar-field">{selected ?? ''}</div>
         <div class="status-bar-field">{recycle ? 'Recycle Bin' : storageLabel}</div>
       </div>
+      ) : null}
     </div>
   );
 }

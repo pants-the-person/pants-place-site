@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { openApp } from '../../kernel/windows';
 import { openWineApp } from '../../kernel/wine';
+import { quoteWindowsArg } from '../../kernel/paths';
 import { showDialog } from '../../kernel/dialogs';
 import type { AppProps } from '../../kernel/types';
 
@@ -38,7 +39,7 @@ export default function Help({ api }: AppProps) {
               <h2>Welcome to Pants Place 98</h2>
               <p>This is a small, functional love letter to the late 1990s desktop. Everything you see is HTML, CSS and TypeScript, with a few pieces of WebAssembly doing the heavy lifting.</p>
               <p>Use the Start menu, double-click desktop icons, drag windows around, and right-click the desktop to change the wallpaper.</p>
-              <button onClick={() => openWineApp('notepad', { args: 'C:\\My Documents\\WELCOME.TXT', title: 'WELCOME.TXT - Notepad' })}>Open the welcome document</button>
+              <button onClick={() => openWineApp('notepad', { args: quoteWindowsArg('C:\\My Documents\\WELCOME.TXT'), title: 'WELCOME.TXT - Notepad' })}>Open the welcome document</button>
             </>
           ) : null}
           {topic === 'desktop' ? (

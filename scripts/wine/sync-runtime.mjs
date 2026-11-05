@@ -82,6 +82,31 @@ function patchRenderer() {
         y0 = cr.y | 0;
         x1 = (cr.x | 0) + (cr.w | 0);
         y1 = (cr.y | 0) + (cr.h | 0);
+        // MFC docked control bars can sit a pixel or two outside the client
+        // rect (WordPad's toolbars start at x=2,y=40 while the client starts
+        // at x=4,y=42). Union visible child controls that are inside the main
+        // window so their top-left edge is not clipped.
+        let childExpanded = false;
+        for (const win of topLevels) {
+          if (!win || win === main.win || !win.visible || !win.isChild || win.w <= 0 || win.h <= 0) continue;
+          if (!win.clientRect) this._computeClientRect(win);
+          const child = win.clientRect;
+          if (!child || child.w <= 0 || child.h <= 0) continue;
+          if ((child.x | 0) < (cr.x | 0) || (child.y | 0) < (cr.y | 0)) childExpanded = true;
+          if (child.x < (cr.x | 0) - 8 || child.y < (cr.y | 0) - 8 ||
+              (child.x | 0) + (child.w | 0) > (cr.x | 0) + (cr.w | 0) + 8 ||
+              (child.y | 0) + (child.h | 0) > (cr.y | 0) + (cr.h | 0) + 8) continue;
+          x0 = Math.min(x0, child.x | 0);
+          y0 = Math.min(y0, child.y | 0);
+          x1 = Math.max(x1, (child.x | 0) + (child.w | 0));
+          y1 = Math.max(y1, (child.y | 0) + (child.h | 0));
+        }
+        if (childExpanded) {
+          x0 = Math.max(0, x0 - 2);
+          y0 = Math.max(0, y0 - 2);
+          x1 += 2;
+          y1 += 2;
+        }
         for (const win of topLevels) {
           if (!win || win === main.win || !win.visible || win.isChild || win.w <= 0 || win.h <= 0) continue;
           if (String(win.className || '').toLowerCase() === 'progman') continue;

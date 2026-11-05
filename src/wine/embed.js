@@ -340,8 +340,41 @@
     menuPollTimer = setInterval(() => {
       if (window.wineShell && window.wineShell.runningApps && window.wineShell.runningApps.length) {
         snapshotMenu(false);
+        publishMetrics(false);
       }
     }, 500);
+  }
+
+  let lastMetricsJson = '';
+
+  function publishMetrics(force = false) {
+    const shell = window.wineShell;
+    const wine = shell && shell.currentWine;
+    const renderer = wine && wine.renderer;
+    if (!wine || !renderer) return;
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const win of Object.values(renderer.windows || {})) {
+      if (!win || !win.visible || win.isChild || win.isDialog || win.w <= 0 || win.h <= 0) continue;
+      if (String(win.className || '').toLowerCase() === 'progman') continue;
+      if (renderer._computeClientRect) {
+        try { renderer._computeClientRect(win); } catch { /* not ready */ }
+      }
+      const rect = win.clientRect;
+      if (!rect || rect.w <= 0 || rect.h <= 0) continue;
+      x0 = Math.min(x0, rect.x | 0);
+      y0 = Math.min(y0, rect.y | 0);
+      x1 = Math.max(x1, (rect.x | 0) + (rect.w | 0));
+      y1 = Math.max(y1, (rect.y | 0) + (rect.h | 0));
+    }
+    if (!Number.isFinite(x0) || !Number.isFinite(y0)) return;
+    const metrics = { width: Math.max(1, x1 - x0), height: Math.max(1, y1 - y0) };
+    const json = JSON.stringify(metrics);
+    if (!force && json === lastMetricsJson) return;
+    lastMetricsJson = json;
+    post('wine:metrics', metrics);
   }
 
   function publishStatus(force) {
@@ -357,6 +390,7 @@
       if (running) {
         startMenuPolling();
         setTimeout(() => snapshotMenu(true), 500);
+        setTimeout(() => publishMetrics(true), 600);
       } else {
         lastMenuJson = '[]';
         post('wine:menu', { hwnd: 0, menus: [] });

@@ -180,7 +180,7 @@ apps.push(
     category: 'wine',
     description: `${app.title} running on Wine-Assembly.`,
     defaultSize: { w: app.defaultWidth, h: app.defaultHeight },
-    minSize: { w: 480, h: 360 },
+    minSize: { w: 320, h: 240 },
     singleton: false,
     component: () => import('../components/apps/WineApp'),
     hidden: true,
@@ -199,7 +199,7 @@ export interface DesktopShortcut {
 }
 
 export const desktopShortcuts: DesktopShortcut[] = [
-  { id: 'my-computer', title: 'My Computer', icon: '/icons/computer.svg', appId: 'computer', props: { path: [] } },
+  { id: 'my-computer', title: 'My Computer', icon: '/icons/desktop.svg', appId: 'computer', props: { path: [] } },
   {
     id: 'my-documents',
     title: 'My Documents',

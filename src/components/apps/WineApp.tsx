@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { AppProps } from '../../kernel/types';
 import { releaseWineDrop, takeWineDrop, openWineDrop } from '../../kernel/wine';
+import { updateWindowBounds } from '../../kernel/windows';
 import { wineAppsById } from '../../generated/wine-apps';
 import WineMenuBar, {
   type WineMenu,
@@ -29,6 +30,7 @@ export default function WineApp({ windowId, appProps, api }: AppProps) {
   const dropSent = useRef(false);
   const launchPathSent = useRef(false);
   const launchArgsSent = useRef(false);
+  const metricsApplied = useRef(false);
   const dropFiles = useRef<File[]>(isDrop ? takeWineDrop(dropToken) : []);
   const [reloadKey, setReloadKey] = useState(0);
   const [ready, setReady] = useState(false);
@@ -171,6 +173,20 @@ export default function WineApp({ windowId, appProps, api }: AppProps) {
           setRunning(true);
           setStatus('Running.');
           break;
+        case 'wine:metrics': {
+          if (metricsApplied.current) break;
+          const width = Number(data.width);
+          const height = Number(data.height);
+          if (!Number.isFinite(width) || !Number.isFinite(height) || width < 80 || height < 60) break;
+          metricsApplied.current = true;
+          const defaultWidth = app?.defaultWidth ?? 420;
+          const defaultHeight = app?.defaultHeight ?? 300;
+          updateWindowBounds(windowId, {
+            w: Math.min(1000, Math.max(defaultWidth, Math.round(width) + 10)),
+            h: Math.min(760, Math.max(defaultHeight, Math.round(height) + 88)),
+          });
+          break;
+        }
         case 'wine:stopped':
           setStatus('The program has stopped.');
           setRunning(false);
@@ -189,6 +205,10 @@ export default function WineApp({ windowId, appProps, api }: AppProps) {
     setError(null);
     setReady(false);
     setStatus('Reloading Wine-Assembly...');
+    dropSent.current = false;
+    launchPathSent.current = false;
+    launchArgsSent.current = false;
+    metricsApplied.current = false;
     setReloadKey((value) => value + 1);
   }
 

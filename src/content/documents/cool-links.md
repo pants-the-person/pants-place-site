@@ -27,7 +27,7 @@ OTHER COOL SITES
 -------------
   [ PANTS PLACE 98 ]
   [ POWERED BY WASM ]
-  [ BEST VIEWED IN IE4 ]
+  [ BEST VIEWED IN IE5 ]
 
 If your site is cool and wants to join the ring, sign the guestbook.
 

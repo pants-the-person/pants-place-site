@@ -4,6 +4,7 @@ import { showDialog } from '../../kernel/dialogs';
 import { webSites } from '../../kernel/web';
 import { wineAppsByCategory, wineAppsById, type WineAppInfo } from '../../generated/wine-apps';
 import { openWineApp } from '../../kernel/wine';
+import { quoteWindowsArg } from '../../kernel/paths';
 import type { DesktopDocument } from '../../kernel/types';
 
 const arrow = <span class="arrow" />;
@@ -380,7 +381,7 @@ export default function StartMenu({ documents }: { documents: DesktopDocument[] 
                     onClick={() => {
                       close();
                       openWineApp('notepad', {
-                        args: `C:\\My Documents\\${doc.filename}`,
+                        args: quoteWindowsArg(`C:\\My Documents\\${doc.filename}`),
                         title: `${doc.filename} - Notepad`,
                       });
                     }}

@@ -10,6 +10,7 @@ import {
   isOldNetHost,
   OLDNET_DEFAULT_YEAR,
   OLDNET_YEARS,
+  WEB_ORIGIN,
 } from '../../kernel/web';
 import { showDialog } from '../../kernel/dialogs';
 import { playSound } from '../../kernel/audio';
@@ -72,6 +73,8 @@ export default function InternetExplorer({ appProps, api, windowId }: AppProps) 
   const [showStandard, setShowStandard] = useState(true);
   const [showAddress, setShowAddress] = useState(true);
   const [showStatus, setShowStatus] = useState(true);
+  const [showLinks, setShowLinks] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [textSize, setTextSize] = useState(100);
   const [userFavorites, setUserFavorites] = useState<SavedFavorite[]>(loadFavorites);
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -571,6 +574,7 @@ export default function InternetExplorer({ appProps, api, windowId }: AppProps) 
           children: [
             { label: 'Standard Buttons', checked: showStandard, action: () => setShowStandard((v) => !v) },
             { label: 'Address Bar', checked: showAddress, action: () => setShowAddress((v) => !v) },
+            { label: 'Links', checked: showLinks, action: () => setShowLinks((v) => !v) },
             { label: 'Status Bar', checked: showStatus, action: () => setShowStatus((v) => !v) },
           ],
         },
@@ -593,6 +597,18 @@ export default function InternetExplorer({ appProps, api, windowId }: AppProps) 
         { label: 'Full Screen', action: () => toggleMaximizeWindow(windowId) },
       ],
     },
+    {
+      label: 'Go',
+      items: [
+        { label: 'Back', disabled: !history.length, action: back },
+        { label: 'Forward', disabled: !future.length, action: forward },
+        { separator: true },
+        { label: 'Home', action: () => loadPath('/web/', WEB_HOME) },
+        { label: 'Search', action: () => loadPath('/web/search/', `${WEB_ORIGIN}/search/`) },
+        { separator: true },
+        { label: 'History', action: () => setHistoryOpen((value) => !value) },
+      ],
+    },
     { label: 'Favorites', items: favoriteItems },
     {
       label: 'Tools',
@@ -608,7 +624,7 @@ export default function InternetExplorer({ appProps, api, windowId }: AppProps) 
           label: 'About Internet Explorer',
           action: () => void showDialog({
             title: 'About Internet Explorer',
-            message: 'Microsoft Internet Explorer 4.0\n\nThis is a loving re-creation for Pants Place 98.',
+            message: 'Microsoft Internet Explorer 5.0\n\nThis is a loving re-creation for Pants Place 98.',
             detail: 'Not affiliated with Microsoft.',
             icon: '/icons/ie.svg',
           }),
@@ -622,7 +638,7 @@ export default function InternetExplorer({ appProps, api, windowId }: AppProps) 
       <MenuBar menus={menus} />
 
       {showStandard ? (
-      <div class="toolbar">
+      <div class="toolbar ie-toolbar">
         <button onClick={back} disabled={!history.length} title="Back">
           <img src="/icons/ie-16.svg" alt="" /> Back
         </button>
@@ -635,15 +651,29 @@ export default function InternetExplorer({ appProps, api, windowId }: AppProps) 
         <button onClick={refresh} title="Refresh">
           Refresh
         </button>
-        <button onClick={() => loadPath('/web/', 'http://www.pants.place/')} title="Home">
+        <div class="toolbar-separator" />
+        <button onClick={() => loadPath('/web/', WEB_HOME)} title="Home">
           <img src="/icons/computer-16.svg" alt="" /> Home
         </button>
-        <button onClick={() => loadPath('/web/search/', 'http://www.pants.place/search/')} title="Search">
+        <button onClick={() => loadPath('/web/search/', `${WEB_ORIGIN}/search/`)} title="Search">
           Search
         </button>
-        <button onClick={copyLink} title="Copy the current address">
-          Copy Link
+        <button onClick={() => { setFavoritesOpen((value) => !value); setHistoryOpen(false); }} title="Favorites">
+          Favorites
         </button>
+        <button onClick={() => { setHistoryOpen((value) => !value); setFavoritesOpen(false); }} title="History">
+          History
+        </button>
+        <button onClick={() => void showDialog({ title: 'Mail', message: 'Outlook Express is not installed.', detail: 'This build has no mail client, but the button is here for authenticity.', icon: '/icons/ie.svg' })} title="Mail">
+          Mail
+        </button>
+        <button onClick={printPage} title="Print">
+          Print
+        </button>
+        <button onClick={viewSource} title="Edit">
+          Edit
+        </button>
+        <div class="toolbar-separator" />
         <label style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#000' }} title="The Old Net archive year">
           Old Net
           <select
@@ -658,12 +688,6 @@ export default function InternetExplorer({ appProps, api, windowId }: AppProps) 
             ))}
           </select>
         </label>
-        <button onClick={() => setFavoritesOpen((v) => !v)} title="Favorites">
-          Favorites
-        </button>
-        <button onClick={printPage}>
-          Print
-        </button>
       </div>
       ) : null}
 
@@ -714,7 +738,38 @@ export default function InternetExplorer({ appProps, api, windowId }: AppProps) 
             ))}
           </div>
         ) : null}
+        {historyOpen ? (
+          <div class="start-submenu" style={{ left: 'auto', right: '4px', top: '26px', bottom: 'auto', minWidth: '300px', maxHeight: '300px', overflowY: 'auto' }}>
+            {history.length ? history.slice().reverse().map((entry) => (
+              <button
+                class="start-item"
+                onClick={() => {
+                  setHistoryOpen(false);
+                  restore(entry);
+                }}
+              >
+                <img src="/icons/ie-16.svg" alt="" width="16" height="16" />
+                <span class="label">{entry.address}</span>
+              </button>
+            )) : <div style={{ padding: '4px 6px' }}>No history yet.</div>}
+            <div class="start-separator" />
+            <button class="start-item" onClick={() => { setHistory([]); setFuture([]); setHistoryOpen(false); }}>
+              <img src="/icons/ie-16.svg" alt="" width="16" height="16" />
+              <span class="label">Clear History</span>
+            </button>
+          </div>
+        ) : null}
       </div>
+      ) : null}
+
+      {showLinks ? (
+        <div class="ie-links-bar">
+          <span>Links</span>
+          {webSites.filter((site) => site.favorite).map((site) => (
+            <button onClick={() => go(site.host)}>{site.title}</button>
+          ))}
+          <button onClick={() => go('http://www.pants.place/downloads/')}>Downloads</button>
+        </div>
       ) : null}
 
       <div style={{ flex: 1, minHeight: 0, margin: '2px 4px', position: 'relative', background: '#fff' }}>
