@@ -10,7 +10,7 @@ A functional Windows 98-style desktop that runs entirely in the browser.
 - **UltimateShades**, a friend-site gaming shrine about Monkey Island and adventure games, alongside Kylie's Cyber Sanctuary (Final Fantasy, Gundam and raves).
 - **Explorer, Notepad, Paint, Minesweeper, Calculator, Display Properties and Help**.
 - **Wine-Assembly** running 41 real Windows 98 programs and games from mirrored `.exe` files in a WebAssembly x86 emulator. Open them from **Start → Programs → Accessories**, **Games**, or **System Tools**.
-- **Persistent `C:\` drive** shared by Explorer, Notepad, Paint and every Wine program. It is backed by ZenFS on IndexedDB, so files survive reloads.
+- **Persistent `C:\` drive** shared by Explorer, Notepad, Paint and every Wine program. ZenFS uses OPFS for writes with read-only R2 and static fallback layers.
 - **Explorer drag-and-drop / Open with Wine** for `.exe`, `.zip`, `.iso` and `.cue` media. Dropped files stay in the browser.
 - Boot sequence, shutdown screen, BSOD easter egg, CRT filter, colour schemes (including Hot Dog Stand), wallpapers and system sounds.
 
@@ -41,14 +41,34 @@ Windows, taskbar buttons, focus, dragging and resizing are handled by the shell.
 
 `C:\` is a real browser-persisted filesystem, not a mock tree. Explorer, Notepad, Paint and Wine-Assembly all read and write the same files.
 
-- Implementation: `src/kernel/fs-store.ts` mounts an IndexedDB backend at `/c` with ZenFS (`@zenfs/core` + `@zenfs/dom`, store `pants-place-c`). Paths are mapped between `C:\...` and ZenFS `/c/...` with a case-insensitive resolver, matching Windows behaviour.
-- First run seeds `My Documents`, `Media`, `Downloads`, `Desktop`, `Program Files`, `Windows` and `Temp`, including the documents in `src/content/documents/` and the generated media playlist. A marker in `C:\.pants\` stops the seed from running twice.
-- Metadata that is not part of a real file (Explorer `openWith`, icons, media ids, shortcut props) lives in `C:\.pants\meta.json`.
+- Implementation: `src/kernel/fs-layers.ts` mounts a layered ZenFS filesystem at `/c`:
+  - **OPFS** (`@zenfs/dom` `WebAccess`) is the writable layer.
+  - **R2** (`worker/vfs.ts`) is a read-only layer served through `/api/vfs/r2/`.
+  - **Static hosted data** (`public/vfs-static`) is the read-only base layer.
+  - ZenFS `CopyOnWrite` overlays guarantee writes only ever land in OPFS. Edits to lower-layer files are copied up; deletes are persisted as journals in `pants-place-state`.
+- Paths are mapped between `C:\...` and ZenFS `/c/...` with a case-insensitive resolver, matching Windows behaviour.
+- `scripts/vfs/build-static-layer.mjs` generates the base `C:` tree from `src/content/documents`, `public/media`, shortcuts and system files. A marker in `C:\.pants\` stops the seed fallback from running twice.
+- Metadata that is not part of a real file (Explorer `openWith`, icons, media ids, shortcut props) lives in `C:\.pants\meta.json`, merged with the generated static metadata manifest.
 - Existing Notepad notes in `localStorage` (`pp98:note:*`) are migrated into `C:\My Documents` once.
 - Wine integration: when a Wine app starts, `src/kernel/fs-bridge.ts` answers a snapshot request from the iframe, mounts those files into the guest's `VirtualFS`, and attaches `VfsOverlay`. Guest writes are journaled back to ZenFS every few seconds and when the app closes. `WINDOWS\TEMP`, `TEMP` and `WINDOWS\RECENT` are ignored, and a single Wine file is capped at 64 MB (256 MB total) to keep snapshot messages bounded.
 - The `wine:fs-*` RPC channel is same-origin and only accepts messages from the Wine iframe. No file content leaves the browser.
 
 ZenFS is LGPL-3.0-or-later; attribution and license links are in `THIRD_PARTY_NOTICES.md`. The build sets `keepNames` in `astro.config.ts` because ZenFS/memium registers struct types by class name at runtime.
+
+### R2 and static layers
+
+- `public/vfs-static/` is generated at build time from the current desktop seed.
+- `worker/vfs.ts` serves the read-only R2 layer through `/api/vfs/r2/`. The binding is `VFS_BUCKET` in `wrangler.vfs.jsonc`; object keys map directly to `C:\` paths.
+- Deploy it with:
+
+```bash
+npm run deploy:vfs
+```
+
+- `npm run deploy:all` deploys the site, the VFS Worker and the Old Net API Worker.
+- Deleting a static or R2 file writes a persisted whiteout journal in OPFS rather than modifying the read-only layer.
+- A future Cloudflare Access layer can be inserted between OPFS and the base R2 layer by adding another `CopyOnWrite` mount and an access-scoped R2 binding.
+
 
 ### MS-DOS C: drive
 
@@ -151,16 +171,16 @@ Enter a real external address such as `www.winamp.com` in IE. It is fetched thro
 - update the address bar as links inside the archived page are clicked
 - keep Back/Forward history against the original URLs
 - copy the current original URL with **Copy Link**
-- fall back to a normal cross-origin iframe when an archived page uses framesets or cannot be safely rendered
+- fall back to a normal iframe document when an archived page uses framesets or cannot be safely rendered
 
-The toolbar year selector defaults to **1998**. The Old Net fetch depends on its public CORS-enabled proxy; there is no server-side proxy in Pants Place.
+The toolbar year selector defaults to **1998**. Archived pages are fetched through the same-origin `/api/oldnet/v2/get` API (deployed separately as the `pants-place-oldnet-api` Worker). That Worker fetches The Old Net once, strips scripts and inline handlers, and returns a response that Cloudflare caches at the edge for a year with `immutable`. Repeat views therefore don't reach The Old Net or rerun the Worker. If the API is unavailable, IE falls back to The Old Net's own CORS-enabled `/get` endpoint.
 
 ### Search
 
 The AltaVista search page searches both:
 
 - the local Pants Place index
-- The Old Net archive via `https://theoldnet.com/find?query=...`
+- The Old Net archive via the cached `/api/oldnet/v2/find` endpoint
 
 Archive result links route back through IE so the address bar stays in sync.
 
@@ -179,11 +199,24 @@ The webring page links members through The Old Net archive and supports filterin
 The site is now a **Cloudflare Workers static-assets project** served on the `pants.place/*` route. The build is still static Astro output in `dist`.
 
 - Build command: `npm run build`
-- Deploy: `npm run deploy` (runs the build, then `wrangler deploy`)
+- Deploy: `npm run deploy` (builds, then deploys the site Worker)
+- Deploy everything: `npm run deploy:all` (site + archive API)
 - Node: **26.13.0** (`.nvmrc`, `.node-version`, and `engines`)
 - Compatibility date: **2026-10-01** in `wrangler.jsonc`
 - Worker name: `pants-place-site`
 - Route: `pants.place/*`
+
+The archive API is a second Worker from the same repository:
+
+- Config: `wrangler.api.jsonc`
+- Source: `worker/oldnet.ts`
+- Worker name: `pants-place-oldnet-api`
+- Route: `pants.place/api/oldnet/*` (more specific than `pants.place/*`, so it wins for API paths)
+- Cache: Cloudflare Workers Cache, one-year TTL for pages, five-minute TTL for search
+- Deploy: `npm run deploy:api`
+- Local: `npm run cf:preview:api`
+
+The site Worker stays assets-only; adding `main`/Workers Cache to it would make static-asset requests billable.
 
 The old Pages project still exists as a rollback target and currently provides the `pants.place` DNS/custom-domain anchor. The Worker route takes precedence for traffic. Do not delete the Pages custom domain or its DNS record without first attaching a Worker custom domain, or the route will have no hostname to serve.
 
@@ -204,9 +237,13 @@ The site code is released under the MIT license in `LICENSE`. Third-party assets
 - `npm run dev` — start the dev server
 - `npm run build` — build `dist/`
 - `npm run preview` — preview the build locally
-- `npm run deploy` — build and deploy the Worker
-- `npm run cf:dry-run` — validate the Worker/assets config without deploying
-- `npm run cf:preview` — run the Worker locally with Wrangler
+- `npm run deploy` — build and deploy the site Worker
+- `npm run deploy:api` — deploy the cached Old Net API Worker
+- `npm run deploy:all` — deploy the site and API Workers
+- `npm run cf:dry-run` — validate the site Worker/assets config without deploying
+- `npm run cf:dry-run:api` — validate the API Worker config without deploying
+- `npm run cf:preview` — run the site Worker locally with Wrangler
+- `npm run cf:preview:api` — run the API Worker locally with Wrangler
 - `npm run wine:prepare` — initialise the submodule, compile the wasm, mirror app assets and regenerate the Wine registry
 - `npm run wine:assets` — refresh only the mirrored app assets
 - `npm run wine:registry` — regenerate `src/generated/wine-apps.ts`

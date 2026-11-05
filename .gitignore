@@ -137,3 +137,7 @@ dist
 # Wine-Assembly generated runtime and mirrored app assets
 /public/wine/
 /.cache/wine/
+
+/public/vfs-static/
+/public/vfs-static.index.json
+/public/vfs-static.meta.json

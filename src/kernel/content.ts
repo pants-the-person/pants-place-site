@@ -22,3 +22,4 @@ export {
   deleteNode,
   storageEstimate,
 } from './fs-store';
+export { layerStatus, type LayerState, type LayerStatus } from './fs-layers';

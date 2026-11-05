@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pants-place-vfs-api",
+  "main": "worker/vfs.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "pants.place/api/vfs/*",
+      "zone_name": "pants.place"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "VFS_BUCKET",
+      "bucket_name": "pants-place-vfs"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

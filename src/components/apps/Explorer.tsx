@@ -9,6 +9,7 @@ import {
   deleteNode,
   storageEstimate,
   refreshFileSystem,
+  layerStatus,
 } from '../../kernel/content';
 import { findNode, type VfsFile, type VfsFolder } from '../../kernel/vfs';
 import { openApp } from '../../kernel/windows';
@@ -55,6 +56,14 @@ export default function Explorer({ appProps, api }: AppProps) {
   }, []);
 
   const address = joinWindowsPath(path);
+  const layerSummary = useMemo(() => {
+    const layers = layerStatus.value;
+    return [
+      layers.opfs === 'ready' ? 'OPFS' : 'session',
+      layers.r2 === 'ready' ? 'R2' : layers.r2 === 'empty' ? 'R2 empty' : 'R2 off',
+      layers.static === 'ready' ? 'static' : 'static off',
+    ].join(' · ');
+  }, [layerStatus.value]);
 
   useEffect(() => {
     setAddressInput(address);
@@ -689,7 +698,7 @@ export default function Explorer({ appProps, api }: AppProps) {
           {network ? `${networkItems.length} object(s)` : recycle ? '0 object(s)' : `${entries.length} object(s)`}
         </div>
         <div class="status-bar-field">{selected ?? ''}</div>
-        <div class="status-bar-field">{recycle ? 'Recycle Bin' : storageLabel}</div>
+        <div class="status-bar-field">{recycle ? 'Recycle Bin' : `${storageLabel} · ${layerSummary}`}</div>
       </div>
       ) : null}
     </div>

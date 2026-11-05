@@ -2,12 +2,12 @@ import { signal } from '@preact/signals';
 import type { DesktopDocument } from './types';
 import type { MediaEntry } from '../integrations/media-manifest';
 import { buildVfs, type VfsFile, type VfsFolder } from './vfs';
+import { createFileSystemLayers, layerStatus, type LayerBundle } from './fs-layers';
 
 const ZEN_ROOT = '/c';
 const META_DIR = '/c/.pants';
 const META_PATH = `${META_DIR}/meta.json`;
 const SEED_PATH = `${META_DIR}/seed.json`;
-const DB_STORE = 'pants-place-c';
 const MAX_WINE_FILE_BYTES = 64 * 1024 * 1024;
 const MAX_WINE_TOTAL_BYTES = 256 * 1024 * 1024;
 
@@ -31,8 +31,10 @@ export interface WineFsRecord {
 }
 
 let fsPromise: Promise<ZenFs> | null = null;
+let layerBundle: LayerBundle | null = null;
 let fsp: ZenFs['promises'] | null = null;
 let metaCache: Record<string, NodeMeta> = {};
+let staticMetaPromise: Promise<Record<string, NodeMeta>> | null = null;
 let readyPromise: Promise<void> | null = null;
 let metaWrite = Promise.resolve();
 
@@ -75,15 +77,12 @@ async function ensureFs(): Promise<ZenFs> {
   if (fsPromise) return fsPromise;
   fsPromise = (async () => {
     const { configure, fs } = await import('@zenfs/core');
-    const { IndexedDB } = await import('@zenfs/dom');
+    const layers = await createFileSystemLayers();
+    layerBundle = layers;
     await configure({
       mounts: {
-        [ZEN_ROOT]: {
-          backend: IndexedDB,
-          storeName: DB_STORE,
-          disableAsyncCache: true,
-        } as never,
-      },
+        [ZEN_ROOT]: layers.fs,
+      } as never,
     });
     return fs;
   })();
@@ -132,14 +131,25 @@ async function resolveZen(path: string): Promise<string | null> {
   return current;
 }
 
+async function loadStaticMeta(): Promise<Record<string, NodeMeta>> {
+  if (!staticMetaPromise) {
+    staticMetaPromise = fetch('/vfs-static.meta.json', { cache: 'no-cache' })
+      .then(async (response) => (response.ok ? await response.json() : {}))
+      .catch(() => ({}));
+  }
+  const parsed = await staticMetaPromise;
+  return parsed && typeof parsed === 'object' ? parsed : {};
+}
+
 async function loadMeta() {
   if (!fsp) return;
+  const base = await loadStaticMeta();
   try {
     const text = await fsp.readFile(META_PATH, 'utf8');
     const parsed = JSON.parse(text);
-    metaCache = parsed && typeof parsed === 'object' ? parsed : {};
+    metaCache = { ...base, ...(parsed && typeof parsed === 'object' ? parsed : {}) };
   } catch {
-    metaCache = {};
+    metaCache = { ...base };
   }
 }
 
@@ -206,9 +216,13 @@ async function seed(documents: DesktopDocument[], media: MediaEntry[]) {
   await fsp.mkdir(META_DIR, { recursive: true }).catch(() => {});
   const seeded = await exists(SEED_PATH);
   if (!seeded) {
-    const root = buildVfs(documents, media);
-    await writeSeedTree(ZEN_ROOT, root);
-    await fsp.writeFile(SEED_PATH, JSON.stringify({ version: 1 }, null, 2));
+    // The base tree is hosted as the read-only static layer. Only fall back
+    // to copying it into OPFS when that layer could not be loaded.
+    if (layerStatus.value.static === 'unavailable') {
+      const root = buildVfs(documents, media);
+      await writeSeedTree(ZEN_ROOT, root);
+    }
+    await fsp.writeFile(SEED_PATH, JSON.stringify({ version: 2, layers: true }, null, 2));
     await saveMeta();
   }
   await migrateNotes();
@@ -256,6 +270,7 @@ function defaultOpenWith(name: string): string | undefined {
   if (['txt', 'md', 'ini', 'log', 'bat', 'cfg', 'sys'].includes(ext)) return 'notepad';
   if (ext === 'exe') return 'wine';
   if (ext === 'zip' || ext === 'iso' || ext === 'cue') return 'wine';
+  if (['mid', 'midi', 'ogg', 'oga', 'url'].includes(ext)) return 'winamp';
   return undefined;
 }
 
@@ -272,12 +287,20 @@ async function buildTree(zenDir: string, winDir: string): Promise<VfsFolder> {
       children.push(await buildTree(childZen, winPath));
       continue;
     }
-    const meta = metaFor(winPath);
+    let meta = metaFor(winPath);
+    const ext = extensionOf(name);
+    // Static/R2 layers cannot carry Pants metadata. Media names use the same
+    // slugged id as the build-time playlist, so derive the player id here.
+    if (!meta && ['mid', 'midi', 'ogg', 'oga'].includes(ext) && /^c:\\media\\/i.test(winPath)) {
+      const relative = winPath.replace(/^c:\\media\\/i, '').replace(/\\/g, '/');
+      const mediaId = relative.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+      meta = { openWith: 'winamp', props: { mediaId } };
+    }
     children.push({
       type: 'file',
       name,
       path: winKey(winPath),
-      ext: extensionOf(name),
+      ext,
       size: typeof meta?.size === 'number' ? meta.size : Number(stat.size) || 0,
       modified: new Date(Number(stat.mtimeMs) || Date.now()).toLocaleString(),
       url: meta?.url,
@@ -361,14 +384,19 @@ export async function readTextFile(path: string): Promise<string> {
   await ensureC();
   const target = await resolveZen(path);
   if (!target) throw new Error(`Cannot find ${path}.`);
-  return fsp!.readFile(target, 'utf8');
+  const data = layerBundle
+    ? await layerBundle.readFile(target)
+    : new Uint8Array(await fsp!.readFile(target));
+  return new TextDecoder().decode(data);
 }
 
 export async function readFileBytes(path: string): Promise<Uint8Array> {
   await ensureC();
   const target = await resolveZen(path);
   if (!target) throw new Error(`Cannot find ${path}.`);
-  return new Uint8Array(await fsp!.readFile(target));
+  return layerBundle
+    ? layerBundle.readFile(target)
+    : new Uint8Array(await fsp!.readFile(target));
 }
 
 export async function writeTextFile(path: string, content: string) {
@@ -470,12 +498,14 @@ export async function snapshotForWine(): Promise<{ records: WineFsRecord[]; warn
         continue;
       }
       const meta = metaFor(winPath);
-      if (meta?.url) continue;
+      if (meta?.url || extensionOf(name) === 'url') continue;
       if (stat.size > MAX_WINE_FILE_BYTES || total + stat.size > MAX_WINE_TOTAL_BYTES) {
         warnings.push(`${winPath} is too large to mount into Wine.`);
         continue;
       }
-      const data = new Uint8Array(await fsp!.readFile(childZen));
+      const data = layerBundle
+        ? await layerBundle.readFile(childZen)
+        : new Uint8Array(await fsp!.readFile(childZen));
       total += data.length;
       records.push({
         path: winPath.toLowerCase(),
