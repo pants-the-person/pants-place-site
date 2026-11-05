@@ -12,16 +12,16 @@ THE PANTS PLACE WEBRING
 
 MEMBERS
 -------
-  * http://www.pantsplace.net/        (you are here)
-  * http://members.tripod.com/~kylie_log/
-  * http://www.geocities.com/SiliconValley/Byte/1998/
-  * http://www.webring.org/pantsring/
+  * http://www.pants.place/        (you are here)
+  * http://www.pants.place/~kylie/
+  * http://www.pants.place/~pants/
+  * http://www.pants.place/webring/
 
 OTHER COOL SITES
 ----------------
-  * http://www.altavista.com/         (search engine)
-  * http://www.pantsplace.net/news/   (news archive)
-  * http://www.pantsplace.net/blog/   (the Pants Log)
+  * http://www.pants.place/search/         (search engine)
+  * http://www.pants.place/news/   (news archive)
+  * http://www.pants.place/blog/   (the Pants Log)
 
 88x31 BUTTONS
 -------------
@@ -31,4 +31,4 @@ OTHER COOL SITES
 
 If your site is cool and wants to join the ring, sign the guestbook.
 
--- webmaster@pantsplace.net
+-- webmaster@pants.place

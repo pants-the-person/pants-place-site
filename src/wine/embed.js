@@ -452,6 +452,33 @@
     }
   }
 
+  async function launchRegisteredApp(data) {
+    const id = String((data && data.app) || '');
+    const args = String((data && data.args) || '');
+    if (!id) return;
+    if (!window.wineApps || !window.wineShell) {
+      publishError('The Wine runtime is not ready yet.');
+      return;
+    }
+    const entry = window.wineApps.APPS && window.wineApps.APPS[id];
+    if (!entry) {
+      publishError(`The registry has no program named ${id}.`);
+      return;
+    }
+    try {
+      if (args) {
+        entry.args = args;
+        entry.singleAppArgs = args;
+      }
+      post('wine:title', { title: String((data && data.name) || entry.label || id) });
+      post('wine:status', { text: `Starting ${entry.label || id}...` });
+      await window.wineShell.launchApp(id, { startedAt: 0 });
+      publishStatus(true);
+    } catch (error) {
+      publishError(error && error.message ? error.message : error);
+    }
+  }
+
   window.addEventListener('message', (event) => {
     if (event.origin !== location.origin) return;
     if (event.source !== host) return;
@@ -465,6 +492,8 @@
       void launchFiles(data.files);
     } else if (data.type === 'wine:launch-path') {
       void launchStoredPath(data);
+    } else if (data.type === 'wine:launch-app') {
+      void launchRegisteredApp(data);
     } else if (data.type === 'wine:menu-command') {
       void handleMenuCommand(data);
     }

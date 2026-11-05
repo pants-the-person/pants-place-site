@@ -43,12 +43,16 @@ const runtimeTargets = [
   path.join(publicWineRoot, 'embed.css'),
   path.join(publicWineRoot, 'index.html'),
 ];
-const sharedFsPatched = (() => {
+const runtimePatchMarkers = (() => {
   try {
-    return fs.readFileSync(path.join(publicWineRoot, 'lib/browser-shell.js'), 'utf8')
-      .includes('PANTS_SHARED_FS');
+    return {
+      sharedFs: fs.readFileSync(path.join(publicWineRoot, 'lib/browser-shell.js'), 'utf8')
+        .includes('PANTS_SHARED_FS'),
+      doubleClick: fs.readFileSync(path.join(publicWineRoot, 'lib/browser-input.js'), 'utf8')
+        .includes('PANTS_DOUBLE_CLICK'),
+    };
   } catch {
-    return false;
+    return { sharedFs: false, doubleClick: false };
   }
 })();
 const runtimeChanged =
@@ -59,7 +63,7 @@ const runtimeChanged =
     } catch {
       return true;
     }
-  }) || !sharedFsPatched);
+  }) || !runtimePatchMarkers.sharedFs || !runtimePatchMarkers.doubleClick);
 if (runtimeChanged) {
   console.log('Refreshing Wine-Assembly runtime files...');
   syncRuntime();

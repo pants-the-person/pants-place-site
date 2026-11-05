@@ -33,7 +33,7 @@ SoundFont. OGG playback uses the Web Audio API. Both share the same
 INTERNET EXPLORER
 -----------------
 The browser frame loads real Astro routes under /web. A small address map
-translates fake 1998 URLs such as http://www.pantsplace.net/ into those
+translates fake 1998 URLs such as http://www.pants.place/ into those
 routes. The fake web is static, crawlable and works without the desktop.
 
 MEDIA

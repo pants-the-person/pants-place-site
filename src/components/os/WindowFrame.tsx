@@ -3,6 +3,7 @@ import { focusWindow, minimizeWindow, toggleMaximizeWindow, closeWindow, updateW
 import type { WindowState } from '../../kernel/types';
 import { playSound } from '../../kernel/audio';
 import { settings } from '../../kernel/settings';
+import { openContextMenu } from '../../kernel/menu';
 
 interface Props {
   window: WindowState;
@@ -119,7 +120,20 @@ export default function WindowFrame({ window: win, active, children }: Props) {
       role="dialog"
       aria-label={win.title}
     >
-      <div class="title-bar" onPointerDown={(e) => beginDrag(e)} onDblClick={max}>
+      <div
+        class="title-bar"
+        onPointerDown={(e) => beginDrag(e)}
+        onDblClick={max}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          openContextMenu(event, [
+            { label: win.mode === 'max' ? 'Restore' : 'Maximize', action: max },
+            { label: 'Minimize', action: minimize },
+            { separator: true },
+            { label: 'Close', action: close },
+          ]);
+        }}
+      >
         <img class="title-bar-icon" src={win.icon} alt="" width="16" height="16" />
         <span class="title-bar-text">{win.title}</span>
         <span class="title-bar-controls">

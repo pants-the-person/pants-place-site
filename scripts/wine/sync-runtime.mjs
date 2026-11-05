@@ -164,6 +164,24 @@ function patchBrowserShell() {
   fs.writeFileSync(shellPath, shell);
 }
 
+function patchBrowserInput() {
+  const inputPath = path.join(publicWineRoot, 'lib/browser-input.js');
+  let input = fs.readFileSync(inputPath, 'utf8');
+  if (input.includes('PANTS_DOUBLE_CLICK')) return;
+
+  const anchor = 'renderer.handleMouseDown(cx, cy, e.button, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey });';
+  if (!input.includes(anchor)) {
+    throw new Error('Wine browser-input patch: mouseDown anchor not found');
+  }
+  // PANTS_DOUBLE_CLICK: carry the browser's click count into the guest so
+  // common dialogs receive WM_LBUTTONDBLCLK and can navigate listbox folders.
+  input = input.replace(
+    anchor,
+    '/* PANTS_DOUBLE_CLICK */ renderer.handleMouseDown(cx, cy, e.button, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, doubleClick: e.detail > 1 });',
+  );
+  fs.writeFileSync(inputPath, input);
+}
+
 export function syncRuntime() {
   fs.mkdirSync(publicWineRoot, { recursive: true });
 
@@ -174,6 +192,7 @@ export function syncRuntime() {
   copyTree(path.join(wineRoot, 'lib'), path.join(publicWineRoot, 'lib'));
   patchRenderer();
   patchBrowserShell();
+  patchBrowserInput();
   copyTree(path.join(wineRoot, 'fonts'), path.join(publicWineRoot, 'fonts'));
   copyTree(path.join(wineRoot, 'icons'), path.join(publicWineRoot, 'icons'));
   copyTree(path.join(wineRoot, 'src'), path.join(publicWineRoot, 'src'), (src, entry) => {

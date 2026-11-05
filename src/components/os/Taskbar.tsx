@@ -1,22 +1,28 @@
 import { useEffect, useState } from 'preact/hooks';
-import { activeWindowId, minimizeWindow, restoreWindow, focusWindow, windows, openApp } from '../../kernel/windows';
+import { activeWindowId, minimizeWindow, restoreWindow, focusWindow, windows, openApp, closeWindow, toggleMaximizeWindow } from '../../kernel/windows';
 import { startMenuOpen } from '../../kernel/windows';
 import { playSound } from '../../kernel/audio';
 import { volume, setVolume } from '../../kernel/player';
 import { settings } from '../../kernel/settings';
+import { openContextMenu } from '../../kernel/menu';
+import { showDialog } from '../../kernel/dialogs';
 
 export default function Taskbar({ onStart }: { onStart: () => void }) {
   const [now, setNow] = useState(new Date());
   const [trayOpen, setTrayOpen] = useState(false);
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 15_000);
+    const timer = setInterval(
+      () => setNow(new Date()),
+      settings.value.showSeconds ? 1000 : 15_000,
+    );
     return () => clearInterval(timer);
-  }, []);
+  }, [settings.value.showSeconds]);
 
   const time = now.toLocaleTimeString([], {
     hour: 'numeric',
     minute: '2-digit',
+    ...(settings.value.showSeconds ? { second: '2-digit' } : {}),
     hour12: !settings.value.clock24,
   });
 
@@ -39,7 +45,22 @@ export default function Taskbar({ onStart }: { onStart: () => void }) {
   }
 
   return (
-    <div class="taskbar">
+    <div
+      class="taskbar"
+      onContextMenu={(event) => {
+        event.preventDefault();
+        openContextMenu(event, [
+          { label: 'Cascade Windows', action: () => windows.value.forEach((win) => { if (win.mode === 'min') restoreWindow(win.id); }) },
+          { label: 'Tile Windows Horizontally', action: () => windows.value.forEach((win) => { if (win.mode === 'min') restoreWindow(win.id); }) },
+          { label: 'Minimize All Windows', action: showDesktop },
+          { separator: true },
+          { label: 'Task Manager', action: () => openApp('control') },
+          { label: 'Properties', action: () => openApp('display') },
+          { separator: true },
+          { label: 'About Pants Place 98', action: () => void showDialog({ title: 'About Pants Place 98', message: 'Pants Place 98 Second Edition', detail: 'A functional Windows 98-style desktop in the browser.', icon: '/icons/logo.svg' }) },
+        ]);
+      }}
+    >
       <button class={`start-button ${startMenuOpen.value ? 'open' : ''}`} onClick={onStart}>
         <img src="/icons/logo.svg" alt="" width="18" height="18" />
         Start
@@ -49,7 +70,7 @@ export default function Taskbar({ onStart }: { onStart: () => void }) {
         <button title="Launch Internet Explorer" onClick={() => openApp('ie')}>
           <img src="/icons/ie-16.svg" alt="" width="16" height="16" />
         </button>
-        <button title="Launch Winamp" onClick={() => openApp('winamp')}>
+        <button title="Launch Winamp" onClick={() => openApp('wine-winamp')}>
           <img src="/icons/winamp-16.svg" alt="" width="16" height="16" />
         </button>
         <button title="Show Desktop" onClick={showDesktop}>
@@ -63,6 +84,17 @@ export default function Taskbar({ onStart }: { onStart: () => void }) {
               key={win.id}
               class={`task-button ${activeWindowId.value === win.id && win.mode !== 'min' ? 'active' : ''}`}
               onClick={() => toggleWindow(win.id)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                openContextMenu(event, [
+                  { label: 'Restore', action: () => restoreWindow(win.id) },
+                  { label: 'Minimize', action: () => minimizeWindow(win.id) },
+                  { label: 'Maximize', action: () => toggleMaximizeWindow(win.id) },
+                  { separator: true },
+                  { label: 'Close', action: () => closeWindow(win.id) },
+                ]);
+              }}
               title={win.title}
             >
               <img src={win.icon} alt="" width="16" height="16" />
@@ -72,13 +104,38 @@ export default function Taskbar({ onStart }: { onStart: () => void }) {
       </div>
 
       <div class="tray">
-        <button title="Volume" onClick={() => setTrayOpen((v) => !v)}>
+        <button
+          title="Volume"
+          onClick={() => setTrayOpen((v) => !v)}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            openContextMenu(event, [
+              { label: 'Volume Control', action: () => setTrayOpen(true) },
+              { label: 'Sounds', action: () => openApp('control') },
+              { label: 'Display Properties', action: () => openApp('display') },
+              { separator: true },
+              { label: 'Network Connections', action: () => openApp('control') },
+            ]);
+          }}
+        >
           <img src="/icons/volume.svg" alt="" width="16" height="16" />
         </button>
         <button title="Dial-Up Networking" onClick={() => openApp('ie')}>
           <img src="/icons/dial.svg" alt="" width="16" height="16" />
         </button>
-        <span class="tray-clock" title={now.toDateString()}>
+        <span
+          class="tray-clock"
+          title={now.toDateString()}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            openContextMenu(event, [
+              { label: 'Adjust Date/Time', action: () => openApp('control') },
+              { label: 'Display Properties', action: () => openApp('display') },
+              { separator: true },
+              { label: 'Task Manager', action: () => openApp('control') },
+            ]);
+          }}
+        >
           {time}
         </span>
         {trayOpen ? (

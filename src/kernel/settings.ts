@@ -8,6 +8,12 @@ export interface Settings {
   clock24: boolean;
   dragContents: boolean;
   screensaver: boolean;
+  pointerShadow: boolean;
+  doubleClickSpeed: number;
+  networkConnected: boolean;
+  showSeconds: boolean;
+  keyboardDelay: number;
+  keyboardRate: number;
 }
 
 const STORAGE_KEY = 'pp98:settings';
@@ -20,6 +26,12 @@ const defaults: Settings = {
   clock24: false,
   dragContents: true,
   screensaver: true,
+  pointerShadow: true,
+  doubleClickSpeed: 500,
+  networkConnected: true,
+  showSeconds: false,
+  keyboardDelay: 400,
+  keyboardRate: 30,
 };
 
 function load(): Settings {
@@ -39,6 +51,7 @@ function apply(s: Settings) {
   document.documentElement.dataset.scheme = s.scheme;
   document.documentElement.dataset.wallpaper = s.wallpaper;
   document.documentElement.dataset.crt = String(s.crt);
+  document.documentElement.dataset.pointerShadow = String(s.pointerShadow);
 }
 
 export function initSettings() {

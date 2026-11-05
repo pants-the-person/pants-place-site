@@ -5,6 +5,7 @@ import Taskbar from './Taskbar';
 import StartMenu from './StartMenu';
 import WindowFrame from './WindowFrame';
 import DialogHost from './DialogHost';
+import ContextMenuHost from './ContextMenu';
 import { activeWindowId, getApp, getAppApi, openApp, startMenuOpen, windows, closeAllWindows } from '../../kernel/windows';
 import { initSettings } from '../../kernel/settings';
 import { startPlayerLoop, stopPlayerLoop } from '../../kernel/player';
@@ -12,6 +13,7 @@ import { playSound } from '../../kernel/audio';
 import { showDialog } from '../../kernel/dialogs';
 import { documents as documentStore, initFileSystem, mediaFiles } from '../../kernel/content';
 import { installFilesystemBridge } from '../../kernel/fs-bridge';
+import { closeContextMenu as closeSharedMenu, openContextMenu as openSharedMenu } from '../../kernel/menu';
 import type { AppProps, DesktopDocument, WindowState } from '../../kernel/types';
 
 function WindowContent({ win }: { win: WindowState }) {
@@ -52,7 +54,6 @@ function WindowContent({ win }: { win: WindowState }) {
 }
 
 export default function Desktop({ documents }: { documents: DesktopDocument[] }) {
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [power, setPower] = useState<'off' | 'restart' | 'logoff' | 'standby' | null>(null);
   const [bsod, setBsod] = useState(false);
   const [notify, setNotify] = useState<string | null>(null);
@@ -68,7 +69,7 @@ export default function Desktop({ documents }: { documents: DesktopDocument[] })
 
     const closeContextMenu = (event: PointerEvent) => {
       const target = event.target as HTMLElement;
-      if (!target?.closest?.('.context-menu')) setMenu(null);
+      if (!target?.closest?.('.context-menu')) closeSharedMenu();
       if (!target?.closest?.('.start-menu') && !target?.closest?.('.start-button')) {
         startMenuOpen.value = false;
       }
@@ -125,14 +126,46 @@ export default function Desktop({ documents }: { documents: DesktopDocument[] })
     };
   }, []);
 
-  function openContextMenu(event: MouseEvent) {
-    event.preventDefault();
+  function desktopContextMenu(event: MouseEvent) {
     if ((event.target as HTMLElement).closest('.win98-window')) return;
-    setMenu({
-      x: Math.min(event.clientX, window.innerWidth - 180),
-      y: Math.min(event.clientY, window.innerHeight - 215),
-    });
     startMenuOpen.value = false;
+    openSharedMenu(event, [
+      {
+        label: 'Arrange Icons By',
+        children: [
+          { label: 'Name', action: () => desktopSort('name') },
+          { label: 'Type', action: () => desktopSort('type') },
+          { label: 'Size', action: () => desktopSort('size') },
+        ],
+      },
+      { label: 'Line up Icons', action: () => undefined },
+      { separator: true },
+      {
+        label: 'Refresh',
+        action: () => {
+          window.dispatchEvent(new Event('pants:refresh-desktop'));
+          openApp('computer', { path: [] });
+        },
+      },
+      { separator: true },
+      {
+        label: 'New',
+        children: [
+          { label: 'Folder', icon: '/icons/folder.svg', action: () => openApp('computer', { path: [] }) },
+          { label: 'Text Document', icon: '/icons/notepad.svg', action: () => openApp('wine-notepad') },
+        ],
+      },
+      { separator: true },
+      { label: 'Properties', action: () => openApp('display') },
+      {
+        label: 'Shut Down...',
+        action: () => window.dispatchEvent(new CustomEvent('pants:power', { detail: 'shutdown' })),
+      },
+    ]);
+  }
+
+  function desktopSort(mode: 'name' | 'type' | 'size') {
+    window.dispatchEvent(new CustomEvent('pants:desktop-sort', { detail: mode }));
   }
 
   if (power === 'off') {
@@ -208,13 +241,13 @@ Click anywhere to return to Windows.`}
     <div id="desktop-shell">
       <div
         id="desktop"
-        onContextMenu={openContextMenu}
+        onContextMenu={desktopContextMenu}
         onPointerDown={(event) => {
           const target = event.target as HTMLElement;
           if (!target.closest('.start-menu') && !target.closest('.start-button')) {
             startMenuOpen.value = false;
           }
-          setMenu(null);
+          closeSharedMenu();
         }}
       >
         <DesktopIcons />
@@ -225,57 +258,13 @@ Click anywhere to return to Windows.`}
         ))}
       </div>
 
-      {menu ? (
-        <div
-          class="context-menu"
-          style={{ left: `${menu.x}px`, top: `${menu.y}px` }}
-          onClick={(event) => event.stopPropagation()}
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          <button onClick={() => setMenu(null)}>Arrange Icons By</button>
-          <button onClick={() => setMenu(null)}>Line up Icons</button>
-          <button
-            onClick={() => {
-              setMenu(null);
-              openApp('computer', { path: [] });
-            }}
-          >
-            Refresh
-          </button>
-          <div class="start-separator" />
-          <button
-            onClick={() => {
-              setMenu(null);
-              void showDialog({ title: 'New', message: 'New folder created on the desktop. (Not really.)', icon: '/icons/folder.svg' });
-            }}
-          >
-            New Folder
-          </button>
-          <div class="start-separator" />
-          <button
-            onClick={() => {
-              setMenu(null);
-              openApp('display');
-            }}
-          >
-            Properties
-          </button>
-          <button
-            onClick={() => {
-              setMenu(null);
-              window.dispatchEvent(new CustomEvent('pants:power', { detail: 'shutdown' }));
-            }}
-          >
-            Shut Down...
-          </button>
-        </div>
-      ) : null}
+      <ContextMenuHost />
 
       <Taskbar
         onStart={() => {
           playSound('click');
           startMenuOpen.value = !startMenuOpen.value;
-          setMenu(null);
+          closeSharedMenu();
         }}
       />
       {startMenuOpen.value ? <StartMenu documents={documents} /> : null}

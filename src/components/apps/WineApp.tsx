@@ -19,13 +19,16 @@ export default function WineApp({ windowId, appProps, api }: AppProps) {
   const wineAppId = explicitAppId || (inferredAppId && inferredAppId !== 'drop' ? inferredAppId : null);
   const dropToken = typeof appProps.token === 'string' ? appProps.token : null;
   const launchPath = typeof appProps.launchPath === 'string' ? appProps.launchPath : null;
+  const launchArgs = typeof appProps.launchArgs === 'string' ? appProps.launchArgs : null;
+  const manualLaunch = Boolean(launchArgs && wineAppId);
   const app = wineAppId ? wineAppsById[wineAppId] : null;
   const title = String(appProps.title || app?.title || (dropToken ? 'Wine-Assembly' : 'Wine-Assembly'));
-  const isDrop = Boolean(dropToken) || Boolean(launchPath);
+  const isDrop = Boolean(dropToken) || Boolean(launchPath) || manualLaunch;
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const dropSent = useRef(false);
   const launchPathSent = useRef(false);
+  const launchArgsSent = useRef(false);
   const dropFiles = useRef<File[]>(isDrop ? takeWineDrop(dropToken) : []);
   const [reloadKey, setReloadKey] = useState(0);
   const [ready, setReady] = useState(false);
@@ -78,6 +81,22 @@ export default function WineApp({ windowId, appProps, api }: AppProps) {
         launchPathSent.current = true;
         frame.contentWindow.postMessage(
           { type: 'wine:launch-path', path: launchPath, name: appProps.name || '' },
+          window.location.origin,
+        );
+      }
+      return;
+    }
+    if (manualLaunch && !launchArgsSent.current) {
+      const frame = iframeRef.current;
+      if (frame?.contentWindow) {
+        launchArgsSent.current = true;
+        frame.contentWindow.postMessage(
+          {
+            type: 'wine:launch-app',
+            app: wineAppId,
+            args: launchArgs,
+            name: appProps.name || title,
+          },
           window.location.origin,
         );
       }

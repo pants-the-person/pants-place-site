@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { AppProps } from '../../kernel/types';
+import { showDialog } from '../../kernel/dialogs';
+import { createDosDrive, syncDosDrive, type DosDrive } from '../../kernel/dos-drive';
 
 const KEY_SCANCODES: Record<string, number> = {
   Enter: 0x1c,
@@ -264,6 +266,10 @@ export default function Terminal({ api }: AppProps) {
   const [failed, setFailed] = useState<string | null>(null);
   const [phosphor, setPhosphor] = useState(true);
   const [scale, setScale] = useState(1);
+  const [dosStatus, setDosStatus] = useState('Starting C: drive...');
+  const driveRef = useRef<DosDrive | null>(null);
+  const syncTimer = useRef<number | null>(null);
+  const syncing = useRef(false);
 
   function focusInput() {
     const focus = () => {
@@ -279,6 +285,30 @@ export default function Terminal({ api }: AppProps) {
     // The window manager re-renders on focus. Re-focus after that render so
     // keystrokes never fall back to <body> and v86's global listeners.
     requestAnimationFrame(focus);
+  }
+
+  async function flushDos(announce = false) {
+    const drive = driveRef.current;
+    if (!drive || syncing.current) return;
+    syncing.current = true;
+    try {
+      const result = await syncDosDrive(drive);
+      if (announce && (result.written || result.removed)) {
+        api.notify(`C: saved ${result.written} file(s), removed ${result.removed}.`);
+      }
+    } catch (error) {
+      setDosStatus(`C: sync failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      syncing.current = false;
+    }
+  }
+
+  function scheduleDosSync() {
+    if (syncTimer.current) window.clearTimeout(syncTimer.current);
+    syncTimer.current = window.setTimeout(() => {
+      syncTimer.current = null;
+      void flushDos(false);
+    }, 2500);
   }
 
   useEffect(() => {
@@ -298,6 +328,18 @@ export default function Terminal({ api }: AppProps) {
         const mod = await import('v86');
         if (disposed || !screenRef.current) return;
 
+        let dosDrive: DosDrive | null = null;
+        try {
+          dosDrive = await createDosDrive();
+          if (disposed) return;
+          driveRef.current = dosDrive;
+          setDosStatus(
+            `C: mounted · ${dosDrive.mounted} file(s)${dosDrive.skipped ? ` · ${dosDrive.skipped} skipped` : ''}`,
+          );
+        } catch (error) {
+          setDosStatus(`C: unavailable (${error instanceof Error ? error.message : String(error)})`);
+        }
+
         const emulator = new (mod as any).V86({
           wasm_path: '/v86/v86.wasm',
           memory_size: 32 * 1024 * 1024,
@@ -310,10 +352,14 @@ export default function Terminal({ api }: AppProps) {
           bios: { url: '/v86/seabios.bin' },
           vga_bios: { url: '/v86/vgabios.bin' },
           fda: { url: '/v86/freedos722.img' },
+          ...(dosDrive ? { hda: { buffer: dosDrive.image.buffer } } : {}),
           autostart: true,
           disable_speaker: true,
         });
         emulatorRef.current = emulator;
+        if (dosDrive) {
+          emulator.add_listener('ide-write-end', () => scheduleDosSync());
+        }
 
         // v86's global listeners are useful for a single terminal, but not for
         // several. Only the clicked terminal is enabled; typing goes through
@@ -356,6 +402,10 @@ export default function Terminal({ api }: AppProps) {
     return () => {
       disposed = true;
       cleanupResize?.();
+      if (syncTimer.current) window.clearTimeout(syncTimer.current);
+      syncTimer.current = null;
+      void flushDos(false);
+      driveRef.current = null;
       if (entry) unregisterTerminal(entry);
       entryRef.current = null;
       try {
@@ -420,7 +470,12 @@ export default function Terminal({ api }: AppProps) {
       style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
     >
       <div class="menu-bar">
-        <button onClick={() => getEmulator()?.restart()}>File</button>
+        <button onClick={() => void showDialog({
+          title: 'MS-DOS Prompt',
+          message: dosStatus,
+          detail: 'Drive C: is a FAT16 image built from the shared Pants Place filesystem. DOS writes are synced back to ZenFS every few seconds and when this window closes.',
+          icon: '/icons/dos.svg',
+        })}>File</button>
         <button onClick={paste}>Edit</button>
         <button onClick={() => setPhosphor((v) => !v)}>View</button>
         <button onClick={fullscreen}>Options</button>
@@ -440,6 +495,7 @@ export default function Terminal({ api }: AppProps) {
         <button onClick={() => getEmulator()?.restart()}>Restart</button>
         <button onClick={fullscreen}>Full Screen</button>
         <button onClick={paste}>Paste</button>
+        <button onClick={() => void flushDos(true)}>Sync C:</button>
         <button class={phosphor ? 'active' : ''} onClick={() => setPhosphor((v) => !v)}>
           CRT Filter
         </button>
@@ -521,8 +577,8 @@ export default function Terminal({ api }: AppProps) {
         />
       </div>
       <div class="status-bar">
-        <div class="status-bar-field">{ready ? 'FreeDOS ready. A:\\>' : 'Booting...'}</div>
-        <div class="status-bar-field">v86 x86 VM</div>
+        <div class="status-bar-field">{ready ? 'FreeDOS ready. C:\\>' : 'Booting...'}</div>
+        <div class="status-bar-field">{dosStatus}</div>
         <div class="status-bar-field">WebAssembly</div>
       </div>
     </div>

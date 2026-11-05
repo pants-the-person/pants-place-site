@@ -50,6 +50,20 @@ Windows, taskbar buttons, focus, dragging and resizing are handled by the shell.
 
 ZenFS is LGPL-3.0-or-later; attribution and license links are in `THIRD_PARTY_NOTICES.md`. The build sets `keepNames` in `astro.config.ts` because ZenFS/memium registers struct types by class name at runtime.
 
+### MS-DOS C: drive
+
+The FreeDOS terminal also gets a real `C:` drive built from the shared filesystem:
+
+- `src/kernel/dos-drive.ts` uses **libmount** (MIT) to format a 64 MB FAT16 partition, write the current `C:\` tree into it, and attach it to v86 as the first hard disk while FreeDOS keeps booting from its floppy image.
+- v86's `ide-write-end` event marks the image dirty. DOS writes are synced back to ZenFS after a short debounce, when the terminal closes, and on `pagehide`.
+- DOS-created files appear in Explorer; deleting a file in DOS removes it from the shared drive. `WINDOWS\TEMP`, `TEMP`, and files over 8 MB are skipped.
+- The terminal is a singleton so two VMs cannot write the same disk image at once.
+- If the FAT image cannot be created, FreeDOS still boots normally and the status bar reports that `C:` is unavailable.
+
+## Duplicate Windows programs
+
+Native HTML5 duplicates are no longer exposed in the Start menu or on the desktop. The visible Notepad, Paint, Calculator, Minesweeper, WordPad and Winamp entries are the Wine versions. The original HTML5 Winamp is kept as a hidden media engine so the site's MIDI/OGG playlist, EQ and spectrum analyser continue to work.
+
 ## Media
 
 Drop `.mid`, `.midi`, `.ogg` or `.oga` files into `public/media/`. The Winamp playlist is generated from that folder at build time and watched while the dev server is running. Subfolders are supported.

@@ -4,6 +4,8 @@ export interface WebSite {
   title: string;
   description: string;
   favorite?: boolean;
+  /** Period-correct hostnames that still resolve to this route. */
+  aliases?: string[];
 }
 
 export interface OldNetSite {
@@ -15,6 +17,9 @@ export interface OldNetSite {
 export const OLDNET_ORIGIN = 'https://theoldnet.com';
 export const OLDNET_DEFAULT_YEAR = 1998;
 export const OLDNET_YEARS = [1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006];
+
+export const WEB_ORIGIN = 'http://www.pants.place';
+const WEB_HOSTS = ['pants.place', 'www.pants.place'];
 
 export function oldNetProxyUrl(url: string, year = OLDNET_DEFAULT_YEAR): string {
   if (/^https?:\/\/theoldnet\.com\/get/i.test(url)) return url;
@@ -99,101 +104,168 @@ export const oldNetFavorites: OldNetSite[] = [
 
 export const webSites: WebSite[] = [
   {
-    host: 'http://www.pantsplace.net/',
+    host: `${WEB_ORIGIN}/`,
     path: '/web/',
     title: 'PANTS PLACE 98',
     description: 'The official homepage of pants_the_person. 486 tuning, MIDI, webrings.',
     favorite: true,
+    aliases: [
+      'http://www.pantsplace.net/',
+      'http://pantsplace.net/',
+    ],
   },
   {
-    host: 'http://www.pantsplace.net/news/',
+    host: `${WEB_ORIGIN}/news/`,
     path: '/web/news/',
     title: 'Pants News',
     description: 'Site updates, Y2K prep, and other important transmissions.',
     favorite: true,
+    aliases: ['http://www.pantsplace.net/news/', 'http://pantsplace.net/news/'],
   },
   {
-    host: 'http://www.pantsplace.net/blog/',
+    host: `${WEB_ORIGIN}/blog/`,
     path: '/web/blog/',
     title: 'The Pants Log',
     description: 'A devlog from a bedroom in 1998.',
     favorite: true,
+    aliases: ['http://www.pantsplace.net/blog/', 'http://pantsplace.net/blog/'],
   },
   {
-    host: 'http://members.tripod.com/~kylie_log/',
+    host: `${WEB_ORIGIN}/~kylie/`,
     path: '/web/~kylie/',
     title: "Kylie's Cyber Sanctuary",
     description: 'Friend site. Best viewed in Netscape 4.0.',
     favorite: true,
+    aliases: [
+      'http://members.tripod.com/~kylie_log/',
+      'http://www.tripod.com/~kylie_log/',
+    ],
   },
   {
-    host: 'http://www.geocities.com/SiliconValley/Byte/1998/',
+    host: `${WEB_ORIGIN}/~pants/`,
     path: '/web/~pants/',
     title: 'pants_the_person // GeoCities',
     description: 'The older, louder, more animated homepage.',
+    aliases: ['http://www.geocities.com/SiliconValley/Byte/1998/'],
   },
   {
-    host: 'http://www.geocities.com/SiliconValley/Byte/1998/ultimateshades/',
+    host: `${WEB_ORIGIN}/~ultimateshades/`,
     path: '/web/~ultimateshades/',
     title: 'UltimateShades',
     description: 'Overclocking shrine, 486 benchmarks and case mods.',
     favorite: true,
+    aliases: [
+      'http://www.geocities.com/SiliconValley/Byte/1998/ultimateshades/',
+      'http://geocities.com/SiliconValley/Byte/1998/ultimateshades/',
+    ],
   },
   {
-    host: 'http://www.pantsplace.net/downloads/',
+    host: `${WEB_ORIGIN}/downloads/`,
     path: '/web/downloads/',
     title: 'Downloads',
     description: 'Wallpapers, MIDI files, and 88x31 buttons.',
+    aliases: ['http://www.pantsplace.net/downloads/', 'http://pantsplace.net/downloads/'],
   },
   {
-    host: 'http://www.pantsplace.net/guestbook/',
+    host: `${WEB_ORIGIN}/guestbook/`,
     path: '/web/guestbook/',
     title: 'Guestbook',
     description: 'Sign the guestbook. Please.',
+    aliases: ['http://www.pantsplace.net/guestbook/', 'http://pantsplace.net/guestbook/'],
   },
   {
-    host: 'http://www.webring.org/pantsring/',
+    host: `${WEB_ORIGIN}/webring/`,
     path: '/web/webring/',
     title: 'The Cool Webring',
     description: 'A ring of extremely cool websites.',
+    aliases: ['http://www.webring.org/pantsring/', 'http://webring.org/pantsring/'],
   },
   {
-    host: 'http://www.altavista.com/',
+    host: `${WEB_ORIGIN}/search/`,
     path: '/web/search/',
     title: 'AltaVista Search',
     description: 'Search the world wide web.',
     favorite: true,
+    aliases: ['http://www.altavista.com/', 'http://altavista.com/'],
   },
 ];
 
+function hostKey(value: string): string {
+  return value
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/index\.html?$/i, '/')
+    .replace(/\/+$/, '')
+    .toLowerCase();
+}
+
+function pathFromHostPath(hostPath: string): string {
+  const clean = hostPath.replace(/^\/+/, '').replace(/\/+$/, '');
+  if (!clean) return '/web/';
+  return `/web/${clean}/`;
+}
+
+function normalizedPath(raw: string): string {
+  let clean = raw.split(/[?#]/, 1)[0].replace(/\/index\.html?$/i, '/');
+  if (!clean.endsWith('/')) clean += '/';
+  return clean;
+}
+
 export function pathToAddress(path: string): string {
-  const clean = path.replace(/\/index\.html$/, '/');
-  const site = webSites.find((s) => s.path === clean);
-  if (site) return site.host;
-  const withSlash = clean.endsWith('/') ? clean : `${clean}/`;
-  const nested = webSites.find((s) => withSlash.startsWith(s.path));
-  if (nested) return `${nested.host}${withSlash.slice(nested.path.length)}`;
-  return `http://www.pantsplace.net${clean}`;
+  const clean = normalizedPath(path);
+
+  // Longest route first so /web/blog/... wins over /web/.
+  const byLength = [...webSites].sort((a, b) => b.path.length - a.path.length);
+  const exact = byLength.find((site) => site.path === clean);
+  if (exact) return exact.host;
+  const nested = byLength.find((site) => clean.startsWith(site.path));
+  if (nested) {
+    return `${nested.host.replace(/\/$/, '')}/${clean.slice(nested.path.length)}`;
+  }
+  return `${WEB_ORIGIN}${clean}`;
 }
 
 export function addressToPath(input: string): string | null {
   const raw = input.trim();
   if (!raw) return null;
-  const normalized = raw.replace(/^https?:\/\//i, '').replace(/\/+$/, '') + '/';
-  for (const site of webSites) {
-    const host = site.host.replace(/^https?:\/\//i, '').replace(/\/+$/, '') + '/';
-    if (normalized === host) return site.path;
-    if (normalized.startsWith(host)) {
-      return `${site.path}${normalized.slice(host.length)}`;
+  if (raw.startsWith('/web') || raw === '/web') {
+    return normalizedPath(raw);
+  }
+
+  // Friendly shortcuts: "news", "blog", "kylie", etc.
+  const shortcut = raw.replace(/^\/+|\/+$/g, '').toLowerCase();
+  const shortcutSite = webSites.find((site) => {
+    const parts = site.path.split('/').filter(Boolean);
+    return parts[parts.length - 1]?.toLowerCase() === shortcut;
+  });
+  if (shortcutSite) return shortcutSite.path;
+
+  const hostPath = hostKey(raw);
+
+  // Every path on the canonical domain belongs to the fake web.
+  for (const host of WEB_HOSTS) {
+    if (hostPath === host) return '/web/';
+    if (hostPath.startsWith(`${host}/`)) {
+      return normalizedPath(pathFromHostPath(hostPath.slice(host.length + 1)));
     }
   }
-  // Friendly shortcuts: "news", "blog", "kylie"
-  const short = normalized.replace(/\/+$/, '').toLowerCase();
-  const match = webSites.find((s) => {
-    const parts = s.path.split('/').filter(Boolean);
-    return parts[parts.length - 1]?.toLowerCase() === short;
-  });
-  if (match) return match.path;
+
+  // Legacy hosts and period-correct aliases. Longest base first so a
+  // GeoCities subdirectory alias wins over its parent neighbourhood.
+  const aliases = webSites
+    .flatMap((site) => [site.host, ...(site.aliases || [])].map((candidate) => ({
+      base: hostKey(candidate),
+      site,
+    })))
+    .sort((a, b) => b.base.length - a.base.length);
+
+  for (const { base, site } of aliases) {
+    if (hostPath === base) return site.path;
+    if (hostPath.startsWith(`${base}/`)) {
+      return normalizedPath(`${site.path}${hostPath.slice(base.length + 1)}/`);
+    }
+  }
+
   return null;
 }
 

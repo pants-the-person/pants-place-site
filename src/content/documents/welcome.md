@@ -24,7 +24,7 @@ THINGS TO TRY
 
 3. Internet Explorer
    The browser is your window into a fake 1998 internet. Start at
-   http://www.pantsplace.net/ and follow the webring.
+   http://www.pants.place/ and follow the webring.
 
 4. Minesweeper
    Because every Windows 98 machine needs Minesweeper.

@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
 import { openApp } from '../../kernel/windows';
+import { openWineApp } from '../../kernel/wine';
 import { showDialog } from '../../kernel/dialogs';
 import type { AppProps } from '../../kernel/types';
 
@@ -37,7 +38,7 @@ export default function Help({ api }: AppProps) {
               <h2>Welcome to Pants Place 98</h2>
               <p>This is a small, functional love letter to the late 1990s desktop. Everything you see is HTML, CSS and TypeScript, with a few pieces of WebAssembly doing the heavy lifting.</p>
               <p>Use the Start menu, double-click desktop icons, drag windows around, and right-click the desktop to change the wallpaper.</p>
-              <button onClick={() => openApp('notepad', { title: 'Welcome', filename: 'WELCOME.TXT' })}>Open the welcome document</button>
+              <button onClick={() => openWineApp('notepad', { args: 'C:\\My Documents\\WELCOME.TXT', title: 'WELCOME.TXT - Notepad' })}>Open the welcome document</button>
             </>
           ) : null}
           {topic === 'desktop' ? (
@@ -56,8 +57,8 @@ export default function Help({ api }: AppProps) {
           {topic === 'dos' ? (
             <>
               <h2>MS-DOS Prompt &amp; FreeDOS</h2>
-              <p>The MS-DOS Prompt is not a simulation of a command line. It is a real FreeDOS 7.10 virtual machine running in v86, an x86 emulator compiled to WebAssembly.</p>
-              <p>Try these commands: <code>VER</code>, <code>DIR</code>, <code>MEM</code>, <code>CLS</code>, <code>INVADERS</code>, <code>SNAKE</code>, <code>TETRIS</code>.</p>
+              <p>The MS-DOS Prompt is not a simulation of a command line. It is a real FreeDOS 7.10 virtual machine running in v86, an x86 emulator compiled to WebAssembly. Drive C: is a real FAT16 image built from the shared Pants Place filesystem.</p>
+              <p>Try these commands: <code>VER</code>, <code>DIR C:\</code>, <code>CD C:\MYDOCU~1</code>, <code>MEM</code>, <code>CLS</code>, <code>INVADERS</code>, <code>SNAKE</code>, <code>TETRIS</code>.</p>
               <button onClick={() => openApp('terminal')}>Open MS-DOS Prompt</button>
             </>
           ) : null}
@@ -66,7 +67,7 @@ export default function Help({ api }: AppProps) {
               <h2>Winamp &amp; media</h2>
               <p>Winamp builds its playlist from <code>public/media</code>. Drop in <code>.mid</code>, <code>.midi</code>, <code>.ogg</code> or <code>.oga</code> files and restart the dev server.</p>
               <p>MIDI files are synthesized with the TimGM6mb General MIDI SoundFont through spessasynth. OGG files use the Web Audio API. Both share the 10-band EQ and spectrum analyser.</p>
-              <button onClick={() => openApp('winamp')}>Open Winamp</button>
+              <button onClick={() => openWineApp('winamp')}>Open Winamp</button>
             </>
           ) : null}
           {topic === 'ie' ? (
@@ -74,7 +75,7 @@ export default function Help({ api }: AppProps) {
               <h2>Internet Explorer</h2>
               <p>The browser loads a static fake internet under <code>/web</code>. The address bar translates period-correct URLs into real routes, so you can type a fake hostname or use the Favorites menu.</p>
               <p>Start at the PantsNet homepage, sign the guestbook, or search AltaVista.</p>
-              <button onClick={() => openApp('ie', { address: 'http://www.pantsplace.net/' })}>Open Internet Explorer</button>
+              <button onClick={() => openApp('ie', { address: 'http://www.pants.place/' })}>Open Internet Explorer</button>
             </>
           ) : null}
           {topic === 'trouble' ? (
@@ -90,6 +91,7 @@ export default function Help({ api }: AppProps) {
               <h2>Credits &amp; licenses</h2>
               <ul>
                 <li>Astro, Preact, and 98.css (MIT).</li>
+                <li>ZenFS (LGPL-3.0-or-later) and libmount (MIT).</li>
                 <li>React95 icons (MIT).</li>
                 <li>v86 (BSD-2-Clause).</li>
                 <li>FreeDOS (GPL-2.0).</li>

@@ -11,6 +11,7 @@ Pants Place 98 is an unofficial fan project. The following third-party works are
 - **v86** — BSD-2-Clause — https://github.com/copy/v86
 - **spessasynth_lib** — Apache-2.0 — https://github.com/spessasus/spessasynth_lib
 - **@fontsource/vt323** — OFL-1.1 — https://fontsource.org/fonts/vt323
+- **libmount** — MIT — https://github.com/vip-delete/libmount. Used to build and read the FAT16 disk image mounted as `C:` in the FreeDOS terminal.
 - **ZenFS (`@zenfs/core`, `@zenfs/dom`)** — LGPL-3.0-or-later — https://zenfs.dev · https://github.com/zen-fs/core · https://www.npmjs.com/package/@zenfs/core
 
   ZenFS, Licensed under the LGPL 3.0 or later and COPYING.md, Copyright © James Prevett and other ZenFS contributors.

@@ -8,15 +8,6 @@ import type { DesktopDocument } from '../../kernel/types';
 
 const arrow = <span class="arrow" />;
 
-const WINE_DUPLICATE_IDS = new Set([
-  'notepad',
-  'calc',
-  'mspaint98',
-  'wordpad',
-  'winamp',
-  'winmine_wep',
-]);
-
 const WINE_GAME_GROUPS: Array<{ label: string; apps: WineAppInfo[] }> = [
   {
     label: 'Card & Board',
@@ -55,15 +46,11 @@ const WINE_GAME_GROUPS: Array<{ label: string; apps: WineAppInfo[] }> = [
   },
 ];
 
-function wineLabel(app: WineAppInfo) {
-  return WINE_DUPLICATE_IDS.has(app.id) ? `${app.title} (Wine)` : app.title;
-}
-
 function WineStartItem({ app, launch }: { app: WineAppInfo; launch: (id: string) => void }) {
   return (
     <button class="start-item" data-wine-app={app.id} onClick={() => launch(app.id)}>
       <img src={app.icon} alt="" width="18" height="18" style={{ imageRendering: 'pixelated' }} />
-      <span class="label">{wineLabel(app)}</span>
+      <span class="label">{app.title}</span>
     </button>
   );
 }
@@ -113,23 +100,33 @@ export default function StartMenu({ documents }: { documents: DesktopDocument[] 
     if (result === 'cancel') return;
     const command = result.trim().toLowerCase();
     if (!command) return;
+    const wineMap: Record<string, string> = {
+      notepad: 'notepad',
+      calc: 'calc',
+      calculator: 'calc',
+      mspaint: 'mspaint98',
+      paint: 'mspaint98',
+      winamp: 'winamp',
+      wordpad: 'wordpad',
+      winmine: 'winmine_wep',
+      minesweeper: 'winmine_wep',
+      taskman: 'taskman',
+      regedit: 'regedit',
+    };
+    if (wineMap[command]) {
+      close();
+      openWineApp(wineMap[command]);
+      return;
+    }
     const map: Record<string, [string, Record<string, unknown>?]> = {
-      notepad: ['notepad'],
-      calc: ['calculator'],
-      calculator: ['calculator'],
-      mspaint: ['paint'],
-      paint: ['paint'],
-      winamp: ['winamp'],
       command: ['terminal'],
       cmd: ['terminal'],
       'command.com': ['terminal'],
       explorer: ['computer'],
       iexplore: ['ie'],
       ie: ['ie'],
-      control: ['display'],
+      control: ['control'],
       help: ['help'],
-      winmine: ['minesweeper'],
-      minesweeper: ['minesweeper'],
     };
     if (map[command]) {
       launch(map[command][0], map[command][1]);
@@ -222,7 +219,7 @@ export default function StartMenu({ documents }: { documents: DesktopDocument[] 
       <div class="start-menu-sidebar">Pants Place 98</div>
       <div class="start-menu-main">
         <div class="start-menu-items">
-          <button class="start-item" onClick={() => launch('ie', { address: 'http://www.pantsplace.net/downloads/' })}>
+          <button class="start-item" onClick={() => launch('ie', { address: 'http://www.pants.place/downloads/' })}>
             <img src="/icons/ie-16.svg" alt="" width="18" height="18" />
             <span class="label">Windows Update</span>
           </button>
@@ -251,26 +248,6 @@ export default function StartMenu({ documents }: { documents: DesktopDocument[] 
                   </button>
                   {nested === 'accessories' ? (
                     <div class="start-submenu">
-                      <button class="start-item" onClick={() => launch('notepad')}>
-                        <img src="/icons/notepad.svg" alt="" width="18" height="18" />
-                        <span class="label">Notepad</span>
-                      </button>
-                      <button class="start-item" onClick={() => launch('paint')}>
-                        <img src="/icons/paint.svg" alt="" width="18" height="18" />
-                        <span class="label">Paint</span>
-                      </button>
-                      <button class="start-item" onClick={() => launch('calculator')}>
-                        <img src="/icons/calculator.svg" alt="" width="18" height="18" />
-                        <span class="label">Calculator</span>
-                      </button>
-                      <button class="start-item" onClick={() => launch('winamp')}>
-                        <img src="/icons/winamp.svg" alt="" width="18" height="18" />
-                        <span class="label">Winamp</span>
-                      </button>
-                      <button class="start-item" onClick={() => info('WordPad', 'WordPad is not installed in this build.')}>
-                        <img src="/icons/file-text.svg" alt="" width="18" height="18" />
-                        <span class="label">WordPad</span>
-                      </button>
                       <div class="start-separator" />
                       {wineAppsByCategory.accessories.map((app) => (
                         <WineStartItem key={app.id} app={app} launch={launchWine} />
@@ -290,10 +267,6 @@ export default function StartMenu({ documents }: { documents: DesktopDocument[] 
                   </button>
                   {nested === 'games' ? (
                     <div class="start-submenu start-submenu-scroll" style={{ top: 'auto', bottom: 0 }}>
-                      <button class="start-item" onClick={() => launch('minesweeper')}>
-                        <img src="/icons/mine.svg" alt="" width="18" height="18" />
-                        <span class="label">Minesweeper</span>
-                      </button>
                       <div class="start-separator" />
                       {WINE_GAME_GROUPS.map((group) => (
                         <div class="start-submenu-group" key={group.label}>
@@ -404,9 +377,13 @@ export default function StartMenu({ documents }: { documents: DesktopDocument[] 
                 {documents.slice(0, 6).map((doc) => (
                   <button
                     class="start-item"
-                    onClick={() =>
-                      launch('notepad', { title: doc.title, body: doc.body, filename: doc.filename })
-                    }
+                    onClick={() => {
+                      close();
+                      openWineApp('notepad', {
+                        args: `C:\\My Documents\\${doc.filename}`,
+                        title: `${doc.filename} - Notepad`,
+                      });
+                    }}
                   >
                     <img src="/icons/file-text.svg" alt="" width="18" height="18" />
                     <span class="label">{doc.filename}</span>
@@ -432,7 +409,7 @@ export default function StartMenu({ documents }: { documents: DesktopDocument[] 
                   <img src="/icons/settings.svg" alt="" width="18" height="18" />
                   <span class="label">Display Properties</span>
                 </button>
-                <button class="start-item" onClick={() => info('Control Panel', 'Control Panel is represented by Display Properties in this build.')}>
+                <button class="start-item" onClick={() => launch('control')}>
                   <img src="/icons/settings.svg" alt="" width="18" height="18" />
                   <span class="label">Control Panel</span>
                 </button>
@@ -464,7 +441,7 @@ export default function StartMenu({ documents }: { documents: DesktopDocument[] 
                   <img src="/icons/find.svg" alt="" width="18" height="18" />
                   <span class="label">Files or Folders...</span>
                 </button>
-                <button class="start-item" onClick={() => launch('ie', { address: 'http://www.altavista.com/' })}>
+                <button class="start-item" onClick={() => launch('ie', { address: 'http://www.pants.place/search/' })}>
                   <img src="/icons/ie-16.svg" alt="" width="18" height="18" />
                   <span class="label">On the Internet...</span>
                 </button>

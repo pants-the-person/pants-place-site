@@ -955,3 +955,181 @@
     transform-origin: top center;
   }
 }
+
+/* ---------- Control Panel ---------- */
+.control-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.control-panel-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 4px;
+  padding: 4px;
+}
+
+.control-panel-grid {
+  flex: 0 0 240px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 96px);
+  align-content: start;
+  gap: 4px;
+  padding: 4px;
+  overflow-y: auto;
+  background: #fff;
+  box-shadow:
+    inset 1px 1px var(--shadow),
+    inset -1px -1px var(--white),
+    inset 2px 2px var(--black),
+    inset -2px -2px var(--surface-light);
+}
+
+.control-applet {
+  width: 92px;
+  height: 78px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: #000;
+  text-shadow: none;
+  font-size: 11px;
+  text-align: center;
+}
+
+.control-applet:hover,
+.control-applet.selected {
+  background: var(--navy);
+  color: var(--selection-text);
+}
+
+.control-applet img {
+  width: 32px;
+  height: 32px;
+}
+
+.control-detail {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 8px 10px;
+  background: var(--surface);
+  box-shadow:
+    inset 1px 1px var(--shadow),
+    inset -1px -1px var(--white),
+    inset 2px 2px var(--black),
+    inset -2px -2px var(--surface-light);
+}
+
+.control-detail-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--shadow);
+}
+
+.control-detail-heading h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.control-detail-heading p {
+  margin: 2px 0 0;
+  color: #404040;
+}
+
+.control-options {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.control-options label {
+  font-weight: 400;
+}
+
+.control-options input[type='range'] {
+  width: min(320px, 100%);
+}
+
+.control-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.control-test-area {
+  width: 100%;
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  box-shadow:
+    inset 1px 1px var(--shadow),
+    inset -1px -1px var(--white);
+}
+
+.control-clock {
+  width: 100%;
+  padding: 12px;
+  background: #000;
+  color: #00ff00;
+  font-family: 'Px437 IBM VGA 8x16', monospace;
+  font-size: 24px;
+  text-align: center;
+}
+
+.control-program-list {
+  width: 100%;
+  max-height: 210px;
+  overflow-y: auto;
+  background: #fff;
+  padding: 4px;
+  box-shadow:
+    inset 1px 1px var(--shadow),
+    inset -1px -1px var(--white);
+}
+
+.control-program-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+}
+
+.control-program-row span:nth-child(2) {
+  flex: 1;
+}
+
+.control-program-size {
+  color: #606060;
+  font-size: 11px;
+}
+
+.control-system-grid {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 5px 10px;
+  width: 100%;
+}
+
+.control-system-grid span {
+  color: #404040;
+}
+
+.control-note {
+  color: #606060;
+  margin: 0;
+}

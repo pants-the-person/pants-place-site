@@ -3,7 +3,6 @@ import {
   fileSystem,
   createFolder,
   createTextFile,
-  readTextFile,
   readFileBytes,
   uploadFiles,
   renameNode,
@@ -12,7 +11,8 @@ import {
 } from '../../kernel/content';
 import { findNode, type VfsFile, type VfsFolder } from '../../kernel/vfs';
 import { openApp } from '../../kernel/windows';
-import { openWineDrop, openWinePath } from '../../kernel/wine';
+import { openWineDrop, openWinePath, openWineApp, wineEquivalents } from '../../kernel/wine';
+import { openContextMenu } from '../../kernel/menu';
 import { showDialog } from '../../kernel/dialogs';
 import { playSound } from '../../kernel/audio';
 import { playTrackById } from '../../kernel/player';
@@ -217,6 +217,89 @@ export default function Explorer({ appProps, api }: AppProps) {
     }
   }
 
+  function entryMenu(entry: VfsFolder | VfsFile, event: MouseEvent) {
+    event.stopPropagation();
+    setSelected(entry.name);
+    const entryPath = entry.path || `${parentPath}\\${entry.name}`;
+    openContextMenu(event, [
+      { label: 'Open', action: () => void openEntry(entry) },
+      ...(entry.type === 'file' && entry.ext === 'exe'
+        ? [{ label: 'Run with Wine...', action: () => openWinePath(entryPath, entry.name) }]
+        : []),
+      ...(entry.type === 'file' && (entry.ext === 'zip' || entry.ext === 'iso' || entry.ext === 'cue')
+        ? [{ label: 'Open with Wine...', action: () => void openEntry(entry) }]
+        : []),
+      ...(entry.type === 'file'
+        ? [{
+            label: 'Open With',
+            children: [
+              { label: 'Notepad (Wine)', action: () => openWineApp('notepad', { args: entryPath, title: `${entry.name} - Notepad` }) },
+              { label: 'WordPad (Wine)', action: () => openWineApp('wordpad', { args: entryPath, title: `${entry.name} - WordPad` }) },
+              { label: 'Paint (Wine)', action: () => openWineApp('mspaint98', { args: entryPath, title: `${entry.name} - Paint` }) },
+            ],
+          }]
+        : []),
+      { separator: true },
+      {
+        label: 'Copy Path',
+        action: () => {
+          void navigator.clipboard?.writeText(entryPath).then(
+            () => api.notify(`Copied ${entryPath}`),
+            () => api.notify('The browser denied clipboard access.'),
+          );
+        },
+      },
+      { label: 'Rename', action: () => void renameSelected() },
+      { label: 'Delete', action: () => void deleteSelected() },
+      { separator: true },
+      {
+        label: 'Properties',
+        action: () => void showDialog({
+          title: `${entry.name} Properties`,
+          message: entry.type === 'folder' ? 'File Folder' : `${entry.ext.toUpperCase()} File`,
+          detail: `${entryPath}\n${entry.type === 'file' ? sizeLabel(entry.size) : 'Folder'}\nModified: ${entry.modified}`,
+          icon: iconFor(entry),
+        }),
+      },
+    ]);
+  }
+
+  function backgroundMenu(event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelected(null);
+    openContextMenu(event, [
+      {
+        label: 'New',
+        children: [
+          { label: 'Folder', icon: '/icons/folder.svg', action: () => void newFolder() },
+          { label: 'Text Document', icon: '/icons/notepad.svg', action: () => void newTextFile() },
+        ],
+      },
+      { label: 'Upload...', icon: '/icons/folder-open.svg', action: () => uploadInputRef.current?.click() },
+      { separator: true },
+      { label: 'Refresh', action: () => window.dispatchEvent(new Event('pants:refresh-desktop')) },
+      {
+        label: 'View',
+        children: [
+          { label: 'Large Icons', checked: view === 'icons', action: () => setView('icons') },
+          { label: 'Details', checked: view === 'details', action: () => setView('details') },
+        ],
+      },
+      {
+        label: 'Arrange By',
+        children: [
+          { label: 'Name', action: () => undefined },
+          { label: 'Size', action: () => undefined },
+          { label: 'Type', action: () => undefined },
+          { label: 'Date', action: () => undefined },
+        ],
+      },
+      { separator: true },
+      { label: 'Properties', action: () => void showDialog({ title: `${address} Properties`, message: 'Local Disk (C:)', detail: storageLabel, icon: '/icons/computer.svg' }) },
+    ]);
+  }
+
   async function openEntry(entry: VfsFolder | VfsFile) {
     if (entry.type === 'folder') {
       navigate([...path, entry.name]);
@@ -224,7 +307,11 @@ export default function Explorer({ appProps, api }: AppProps) {
     }
     const entryPath = entry.path || `${parentPath}\\${entry.name}`;
     if (entry.name.toLowerCase().endsWith('.lnk')) {
-      if (entry.openWith) openApp(entry.openWith, entry.props);
+      if (entry.openWith) {
+        const wineId = wineEquivalents[entry.openWith];
+        if (wineId) openWineApp(wineId);
+        else openApp(entry.openWith, entry.props);
+      }
       return;
     }
     if (entry.openWith === 'winamp') {
@@ -246,17 +333,10 @@ export default function Explorer({ appProps, api }: AppProps) {
       return;
     }
     if (entry.openWith === 'notepad' || entry.ext === 'txt' || entry.ext === 'md') {
-      try {
-        const body = entry.content ?? (await readTextFile(entryPath));
-        openApp('notepad', {
-          title: `${entry.name} - Notepad`,
-          filename: entry.name,
-          path: entryPath,
-          body,
-        });
-      } catch (error) {
-        void showDialog({ title: 'Notepad', message: 'The file could not be opened.', detail: String(error), kind: 'error', icon: '/icons/notepad.svg' });
-      }
+      openWineApp('notepad', {
+        args: entryPath,
+        title: `${entry.name} - Notepad`,
+      });
       return;
     }
     void showDialog({
@@ -452,14 +532,14 @@ export default function Explorer({ appProps, api }: AppProps) {
           ) : path.length === 0 ? (
             <>
               <div class="explorer-section-title">Files Stored on This Computer</div>
-              <div class="explorer-grid">
+              <div class="explorer-grid" onContextMenu={backgroundMenu}>
                 {[
                   { name: '3½ Floppy (A:)', icon: '/icons/dos.svg', action: () => void showDialog({ title: '3½ Floppy (A:)', message: 'There is no disk in the drive. Please insert a disk and try again.', kind: 'error', icon: '/icons/dos.svg' }) },
                   { name: 'Win98 (C:)', icon: '/icons/computer.svg', action: () => navigate([]) },
                   { name: 'Compact Disc (D:)', icon: '/icons/cd.svg', action: () => navigate(['Media']) },
-                  { name: 'Control Panel', icon: '/icons/settings.svg', action: () => openApp('display') },
+                  { name: 'Control Panel', icon: '/icons/settings.svg', action: () => openApp('control') },
                   { name: 'Printers', icon: '/icons/settings.svg', action: () => void showDialog({ title: 'Printers', message: 'No printers are installed.', icon: '/icons/settings.svg' }) },
-                  { name: 'Dial-Up Networking', icon: '/icons/dial.svg', action: () => openApp('ie') },
+                  { name: 'Dial-Up Networking', icon: '/icons/dial.svg', action: () => openApp('control') },
                 ].map((item) => (
                   <button
                     class="explorer-item"
@@ -482,6 +562,8 @@ export default function Explorer({ appProps, api }: AppProps) {
                 view={view}
                 onSelect={setSelected}
                 onOpen={openEntry}
+                onEntryMenu={entryMenu}
+                onBackgroundMenu={backgroundMenu}
                 iconFor={iconFor}
                 sizeLabel={sizeLabel}
               />
@@ -493,6 +575,8 @@ export default function Explorer({ appProps, api }: AppProps) {
               view={view}
               onSelect={setSelected}
               onOpen={openEntry}
+              onEntryMenu={entryMenu}
+              onBackgroundMenu={backgroundMenu}
               iconFor={iconFor}
               sizeLabel={sizeLabel}
             />
@@ -517,6 +601,8 @@ function FileGrid({
   view,
   onSelect,
   onOpen,
+  onEntryMenu,
+  onBackgroundMenu,
   iconFor,
   sizeLabel,
 }: {
@@ -525,12 +611,14 @@ function FileGrid({
   view: 'icons' | 'details';
   onSelect: (name: string | null) => void;
   onOpen: (entry: VfsFolder | VfsFile) => void;
+  onEntryMenu: (entry: VfsFolder | VfsFile, event: MouseEvent) => void;
+  onBackgroundMenu: (event: MouseEvent) => void;
   iconFor: (entry: VfsFolder | VfsFile) => string;
   sizeLabel: (size: number) => string;
 }) {
   if (view === 'details') {
     return (
-      <table style={{ width: '100%', marginTop: '4px' }}>
+      <table style={{ width: '100%', marginTop: '4px' }} onContextMenu={onBackgroundMenu}>
         <thead>
           <tr>
             <th>Name</th>
@@ -546,6 +634,7 @@ function FileGrid({
               class={selected === entry.name ? 'highlighted' : ''}
               onClick={() => onSelect(entry.name)}
               onDblClick={() => onOpen(entry)}
+              onContextMenu={(event) => onEntryMenu(entry, event)}
               style={{ cursor: 'default' }}
             >
               <td style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -562,7 +651,7 @@ function FileGrid({
   }
 
   return (
-    <div class="explorer-grid">
+    <div class="explorer-grid" onContextMenu={onBackgroundMenu}>
       {entries.map((entry) => (
         <button
           key={entry.name}
@@ -575,6 +664,7 @@ function FileGrid({
             }
           }}
           onDblClick={() => onOpen(entry)}
+          onContextMenu={(event) => onEntryMenu(entry, event)}
           title={entry.name}
         >
           <img src={iconFor(entry)} alt="" width="32" height="32" />
