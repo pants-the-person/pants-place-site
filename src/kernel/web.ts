@@ -134,7 +134,7 @@ export const webSites: WebSite[] = [
     host: `${WEB_ORIGIN}/~kylie/`,
     path: '/web/~kylie/',
     title: "Kylie's Cyber Sanctuary",
-    description: 'Friend site. Best viewed in Netscape 4.0.',
+    description: 'Final Fantasy, Gundam Wing and warehouse raves, updated from a bedroom in 1998.',
     favorite: true,
     aliases: [
       'http://members.tripod.com/~kylie_log/',
@@ -152,7 +152,7 @@ export const webSites: WebSite[] = [
     host: `${WEB_ORIGIN}/~ultimateshades/`,
     path: '/web/~ultimateshades/',
     title: 'UltimateShades',
-    description: 'Overclocking shrine, 486 benchmarks and case mods.',
+    description: 'A 1998 gaming shrine: Monkey Island, LucasArts adventures, reviews and high scores.',
     favorite: true,
     aliases: [
       'http://www.geocities.com/SiliconValley/Byte/1998/ultimateshades/',
