@@ -81,13 +81,39 @@ Useful commands:
 ```bash
 npm run sites:build          # incremental build for local development
 npm run sites:build:force    # rebuild every site
-npm run sites:update         # bump all site submodules to remote main
+npm run sites:sync           # move site submodules to their remote main
+npm run sites:metadata       # regenerate personal-sites.ts only
+npm run sites:update         # local update with merge
 ```
 
-Submodule pointers are pinned. A contributor updates their own repository, then
-the parent pointer is bumped separately. Because the parent build executes each
-site's `npm ci` and `npm run build`, review submodule bumps before deploying or
-run sub-site builds in a CI job without parent deploy secrets.
+### Automatic site updates
+
+`.github/workflows/sync-personal-sites.yml` keeps the pinned submodule pointers
+current. It runs every 15 minutes, on manual dispatch, and on a
+`personal-site-updated` repository dispatch.
+
+Each run:
+
+1. checks out the parent repository
+2. runs `npm run sites:sync`
+3. runs `npm run sites:metadata`
+4. commits changed gitlinks and `src/generated/personal-sites.ts`
+5. pushes to `main` only when something changed
+
+The push to `main` triggers the existing Cloudflare Workers Build deploy. The
+workflow needs no Cloudflare secrets. It only runs Git and a metadata-only Node
+script; it does not install or execute the site repositories' build scripts.
+
+The parent build still runs each site's `npm ci` and `npm run build`. A
+contributor with write access to a site repo can therefore change production
+content, and their build scripts run in the Cloudflare build environment. Use
+branch protection or a pull-request sync workflow if those repositories are not
+fully trusted.
+
+If the parent `main` branch is protected later, change the workflow from a
+direct push to a pull request. If you want immediate updates, add the repository
+dispatch step documented in `README.md` and set a dispatch token in each site
+repository.
 
 The old `/web/~pants/`, `/web/~kylie/` and `/web/~ultimateshades/` paths are
 301-redirected by `public/_redirects` to the new content. The public

@@ -11,6 +11,7 @@ const cacheRoot = path.join(root, '.cache/sites');
 const generatedFile = path.join(root, 'src/generated/personal-sites.ts');
 const force = process.argv.includes('--force');
 const allowMissing = process.argv.includes('--allow-missing');
+const metadataOnly = process.argv.includes('--metadata-only');
 const WEB_ORIGIN = 'http://www.pants.place';
 
 const TEXT_EXTENSIONS = new Set([
@@ -361,6 +362,11 @@ function main() {
     return kind || a.slug.localeCompare(b.slug);
   });
   if (!sites.length) warn('no sites found under sites/*/*');
+  if (metadataOnly) {
+    writeRegistry(sites);
+    log(`metadata ready: ${sites.length} personal site${sites.length === 1 ? '' : 's'}`);
+    return;
+  }
   const rewriteMap = makeRewriteMap(sites);
   for (const site of sites) {
     buildSite(site);

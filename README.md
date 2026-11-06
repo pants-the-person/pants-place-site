@@ -275,9 +275,35 @@ The old `~pants`, `~kylie` and `~ultimateshades` pages were removed. Their URLs 
 1. Create a repository named `site-<kind>-<slug>`.
 2. Add it with `git submodule add -b main <repo-url> sites/<kind>/<slug>`.
 3. Run `npm run sites:build` and commit `src/generated/personal-sites.ts`.
-4. Use `npm run sites:update` to bump all site submodule pointers to their remote `main` branches for review.
+4. Commit the new submodule pointer. The scheduled sync workflow will keep it updated after that.
 
 Because the parent build executes each site's `npm ci` and `npm run build`, review submodule bumps before deploying. Build sub-sites in a job without parent deploy secrets if the site authors are not fully trusted.
+
+### Automatic updates
+
+`.github/workflows/sync-personal-sites.yml` runs every 15 minutes and can also be started manually from the Actions tab.
+
+It:
+
+- runs `npm run sites:sync` to move every site submodule to the latest commit on its remote `main`
+- runs `npm run sites:metadata` to regenerate `src/generated/personal-sites.ts`
+- commits the changed submodule pointers only when something actually changed
+- pushes to `main`, which triggers the existing Cloudflare Workers Build deploy
+
+No Cloudflare secrets are needed in GitHub Actions: Cloudflare already deploys from pushes to `main`.
+
+The workflow also listens for a `personal-site-updated` repository dispatch. If you want immediate updates instead of waiting for the schedule, add a dispatch step to each site repo:
+
+```yaml
+- name: Notify pants.place
+  uses: peter-evans/repository-dispatch@v3
+  with:
+    token: ${{ secrets.PANTS_PLACE_DISPATCH_TOKEN }}
+    repository: pants-the-person/pants-place-site
+    event-type: personal-site-updated
+```
+
+That requires a token with write access to this repository, stored as a secret in each site repo.
 
 ## Deployment
 
