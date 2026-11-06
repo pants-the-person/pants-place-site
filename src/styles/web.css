@@ -201,6 +201,64 @@ a:hover {
   color: #00ffff;
 }
 
+.pantsnet-steps {
+  margin: 0 0 0 22px;
+  padding: 0;
+}
+.pantsnet-steps li {
+  margin-bottom: 9px;
+  line-height: 1.45;
+}
+.pantsnet-steps li:last-child {
+  margin-bottom: 0;
+}
+
+.pantsnet-ring {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.pantsnet-ring li {
+  border-bottom: 1px dotted #999;
+  padding: 9px 0;
+}
+.pantsnet-ring li:last-child {
+  border-bottom: 0;
+}
+.pantsnet-ring-title {
+  font-family: Arial, sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+}
+.pantsnet-ring-kind {
+  display: inline-block;
+  padding: 0 4px;
+  background: #000080;
+  color: #ffff00;
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  vertical-align: 2px;
+}
+.pantsnet-ring-description {
+  color: #333;
+  font-size: 14px;
+  margin-top: 2px;
+}
+.pantsnet-ring-address {
+  color: #666;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+.pantsnet-random {
+  padding: 6px 14px;
+  font-family: Arial, sans-serif;
+  font-weight: 700;
+  background: #c0c0c0;
+  border: 2px outset #fff;
+}
+
 .web-blink {
   animation: web-blink 1s steps(2) infinite;
 }

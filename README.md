@@ -245,6 +245,16 @@ Every site page is also a desktop deep link:
 
 Visiting one of those paths renders the desktop and opens IE at the corresponding fake address, for example `http://www.pants.place/member/pants/`. Internal content stays at `/web/member/pants/`, so the IE iframe never loads the desktop inside itself.
 
+Members also accept the original `/users/<name>` form, including nested pages and query autostart:
+
+```text
+/users/pants
+/users/pants/about
+/users/pants?autostart=winamp.exe
+```
+
+The IE homepage at `/web/` is a PantsNet start page: it explains the browser controls, links the local webring, and places The Old Net Webring underneath it.
+
 The old `~pants`, `~kylie` and `~ultimateshades` pages were removed. Their URLs redirect to the new sites, and their Tripod/GeoCities aliases still resolve.
 
 ### Query-based autostart

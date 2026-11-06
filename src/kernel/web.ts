@@ -1,4 +1,4 @@
-import { personalSites } from './sites';
+import { contentPathForLauncherPath, personalSites, siteForLauncherPath } from './sites';
 
 export interface WebSite {
   host: string;
@@ -136,8 +136,8 @@ const baseWebSites: WebSite[] = [
   {
     host: `${WEB_ORIGIN}/`,
     path: '/web/',
-    title: 'PANTS PLACE 98',
-    description: 'The official homepage of pants_the_person. 486 tuning, MIDI, webrings.',
+    title: 'PantsNet Start Page',
+    description: 'How to use the PantsNet browser, plus the local and Old Net webrings.',
     favorite: true,
     aliases: [
       'http://www.pantsplace.net/',
@@ -235,6 +235,11 @@ function pathFromHostPath(hostPath: string): string {
 
 function normalizedPath(raw: string): string {
   let clean = raw.split(/[?#]/, 1)[0].replace(/\/index\.html?$/i, '/');
+  // The original personal-site scheme used /users/<name>; canonicalize it to
+  // /member/<name> so old fake-web addresses keep working.
+  if (/^\/web\/users(?:\/|$)/.test(clean)) {
+    clean = `/web/member${clean.slice('/web/users'.length)}`;
+  }
   if (!clean.endsWith('/')) clean += '/';
   return clean;
 }
@@ -258,6 +263,14 @@ export function addressToPath(input: string): string | null {
   if (!raw) return null;
   if (raw.startsWith('/web') || raw === '/web') {
     return normalizedPath(raw);
+  }
+
+  // Desktop launcher paths such as /member/pants, /users/pants or
+  // /char/chogi point at the generated content inside IE.
+  const launcherCandidate = raw.startsWith('/') ? raw : `/${raw}`;
+  if (/^\/(?:member|users|char)\//.test(launcherCandidate)) {
+    const site = siteForLauncherPath(launcherCandidate);
+    if (site) return contentPathForLauncherPath(launcherCandidate, site);
   }
 
   // Friendly shortcuts: "news", "blog", "kylie", etc.

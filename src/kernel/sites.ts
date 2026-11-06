@@ -17,14 +17,21 @@ function pathMatches(pathname: string, base: string): boolean {
   return pathname === base || pathname.startsWith(`${base}/`);
 }
 
+/** Canonical launcher plus any legacy aliases. */
+export function launcherPathsForSite(site: PersonalSite): string[] {
+  const paths = [site.launcherPath];
+  // The original URL scheme used /users/<name>; keep it working for members.
+  if (site.kind === 'member') paths.push(`/users/${site.slug}`);
+  return [...new Set(paths)];
+}
+
 /** Find a personal site from its desktop launcher path, e.g. /member/pants. */
 export function siteForLauncherPath(pathname: string): PersonalSite | null {
   const normalized = normalizeSitePath(pathname);
-  return (
-    [...personalSites]
-      .sort((a, b) => b.launcherPath.length - a.launcherPath.length)
-      .find((site) => pathMatches(normalized, site.launcherPath)) ?? null
-  );
+  const candidates = personalSites
+    .flatMap((site) => launcherPathsForSite(site).map((base) => ({ site, base })))
+    .sort((a, b) => b.base.length - a.base.length);
+  return candidates.find(({ base }) => pathMatches(normalized, base))?.site ?? null;
 }
 
 /** Find a personal site from its raw content path, e.g. /web/member/pants/. */
@@ -44,8 +51,11 @@ export function isPersonalContentPath(pathname: string): boolean {
 /** The part of a launcher path after the site root, with no leading slash. */
 export function siteRelativePath(pathname: string, site: PersonalSite): string {
   const normalized = normalizeSitePath(pathname);
-  if (!pathMatches(normalized, site.launcherPath)) return '';
-  return normalized.slice(site.launcherPath.length).replace(/^\/+/, '');
+  const base = launcherPathsForSite(site)
+    .sort((a, b) => b.length - a.length)
+    .find((candidate) => pathMatches(normalized, candidate));
+  if (!base) return '';
+  return normalized.slice(base.length).replace(/^\/+/, '');
 }
 
 /** Build the fake-browser address for any launcher path. */

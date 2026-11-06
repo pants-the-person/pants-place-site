@@ -94,6 +94,10 @@ The old `/web/~pants/`, `/web/~kylie/` and `/web/~ultimateshades/` paths are
 `/~pants/`, `/~kylie/` and `/~ultimateshades/` paths redirect to the new desktop
 deep links.
 
+Members keep the original `/users/<name>` launcher alias alongside
+`/member/<name>`, including nested pages and query autostart. Old
+`/web/users/...` content URLs redirect to `/web/member/...`.
+
 ## Cached Old Net API Worker
 
 The archive API is a second Worker deployed from this repository. It does **not**

@@ -7,6 +7,7 @@
 /web/~pants/ /web/member/pants/ 301
 /web/~kylie/ /web/member/kylie/ 301
 /web/~ultimateshades/ /web/member/shades/ 301
+/web/users/ /web/member/ 301
 /~pants/ /member/pants 301
 /~kylie/ /member/kylie 301
 /~ultimateshades/ /member/shades 301
@@ -14,6 +15,7 @@
 /web/~pants/* /web/member/pants/:splat 301
 /web/~kylie/* /web/member/kylie/:splat 301
 /web/~ultimateshades/* /web/member/shades/:splat 301
+/web/users/* /web/member/:splat 301
 /~pants/* /member/pants/:splat 301
 /~kylie/* /member/kylie/:splat 301
 /~ultimateshades/* /member/shades/:splat 301

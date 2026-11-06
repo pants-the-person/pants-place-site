@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { PersonalSiteDeepLink } from '../kernel/autostart';
-import type { PersonalSite } from '../kernel/sites';
+import { launcherPathsForSite, type PersonalSite } from '../kernel/sites';
 
 const contentRoot = path.resolve(process.cwd(), 'public/web');
 
@@ -30,30 +30,26 @@ function routesForSite(site: PersonalSite): PersonalSiteRoute[] {
   const dir = path.join(contentRoot, site.kind, site.slug);
   const htmlFiles = walkHtml(dir).filter((file) => file !== '404.html' && file !== '500.html');
   const routes = new Map<string, PersonalSiteRoute>();
-  const base: PersonalSiteRoute = {
-    params: { path: site.launcherPath.replace(/^\//, '') },
-    props: { site, deepLink: { siteId: `${site.kind}/${site.slug}`, address: site.address } },
-  };
-  routes.set(site.launcherPath, base);
+  const launcherPaths = launcherPathsForSite(site);
 
-  for (const relative of htmlFiles) {
-    let routePath = site.launcherPath;
-    let address = site.address;
-    if (relative === 'index.html') {
-      // Already covered by the site root.
-    } else if (relative.endsWith('/index.html')) {
-      const sub = relative.slice(0, -'/index.html'.length);
-      routePath = `${site.launcherPath}/${sub}`;
-      address = `${site.address}${sub}/`;
-    } else {
-      routePath = `${site.launcherPath}/${relative}`;
-      address = `${site.address}${relative}`;
-    }
-    if (!routes.has(routePath)) {
-      routes.set(routePath, {
-        params: { path: routePath.replace(/^\//, '') },
-        props: { site, deepLink: { siteId: `${site.kind}/${site.slug}`, address } },
-      });
+  const addRoute = (routePath: string, address: string) => {
+    if (routes.has(routePath)) return;
+    routes.set(routePath, {
+      params: { path: routePath.replace(/^\//, '') },
+      props: { site, deepLink: { siteId: `${site.kind}/${site.slug}`, address } },
+    });
+  };
+
+  for (const launcherPath of launcherPaths) {
+    addRoute(launcherPath, site.address);
+    for (const relative of htmlFiles) {
+      if (relative === 'index.html') continue;
+      if (relative.endsWith('/index.html')) {
+        const sub = relative.slice(0, -'/index.html'.length);
+        addRoute(`${launcherPath}/${sub}`, `${site.address}${sub}/`);
+      } else {
+        addRoute(`${launcherPath}/${relative}`, `${site.address}${relative}`);
+      }
     }
   }
 

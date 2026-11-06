@@ -1,116 +1,130 @@
 ---
 import WebLayout from '../../layouts/WebLayout.astro';
-import { oldNetProxyUrl } from '../../kernel/web';
-import { entryUrl, formatDate, getBlog, getNews } from '../../lib/web';
+import ringData from '../../data/oldnet-webring.json';
+import { personalSites } from '../../kernel/sites';
 
-const news = (await getNews()).slice(0, 3);
-const blog = (await getBlog()).slice(0, 3);
+const oldnetMembers = ringData.members;
 ---
 
-<WebLayout title="PANTS PLACE 98 — Home" description="The official homepage of pants_the_person. 486 tuning, MIDI files, webrings, and more.">
+<WebLayout
+  title="PantsNet Start Page — PANTS PLACE 98"
+  description="How to use the PantsNet browser, plus the local site webring and The Old Net Webring."
+>
+  <div style="text-align:center">
+    <h1>WELCOME TO PANTSNET</h1>
+    <p style="font-family:'Courier New',monospace;font-size:13px">
+      ~ your guide to the World Wide Web, 1998 edition ~
+    </p>
+  </div>
+
   <div class="web-columns">
     <div>
-      <h1>WELCOME TO MY CORNER OF CYBERSPACE!</h1>
-      <p>
-        Hi, I'm <b>pants_the_person</b>. This is my personal homepage on the World Wide Web.
-        I like old computers, MIDI files, and making websites that are too wide for your monitor.
-      </p>
-      <p>
-        <span class="web-under-construction">🚧 UNDER CONSTRUCTION 🚧</span>
-        <span class="web-blink" style="color:#cc0000;font-weight:700;margin-left:8px;">NEW!</span>
-        The guestbook is back online.
-      </p>
-
+      <h2>HOW TO USE THIS BROWSER</h2>
       <div class="web-panel">
-        <h3>📰 Latest News</h3>
-        <ul class="web-post-list">
-          {news.map((entry) => (
-            <li>
-              <div class="web-post-date">{formatDate(entry.data.date)}</div>
-              <a class="web-post-title" href={entryUrl(entry)}>{entry.data.title}</a>
-              <p style="margin:4px 0 0">{entry.data.summary}</p>
-            </li>
-          ))}
-        </ul>
-        <p><a href="/web/news/">Read the news archive »</a></p>
-      </div>
-
-      <div class="web-panel">
-        <h3>📓 From the Pants Log</h3>
-        <ul class="web-post-list">
-          {blog.map((entry) => (
-            <li>
-              <div class="web-post-date">{formatDate(entry.data.date)}</div>
-              <a class="web-post-title" href={entryUrl(entry)}>{entry.data.title}</a>
-              <p style="margin:4px 0 0">{entry.data.summary}</p>
-            </li>
-          ))}
-        </ul>
-        <p><a href="/web/blog/">Read the whole log »</a></p>
+        <ol class="pantsnet-steps">
+          <li>
+            <b>Type an address.</b> Use the Address bar and press Enter. Shortcuts like
+            <code>news</code>, <code>blog</code>, <code>pants</code>, <code>kylie</code> and
+            <code>chogi</code> work too.
+          </li>
+          <li>
+            <b>Move around.</b> Use <b>Back</b>, <b>Forward</b>, <b>Refresh</b> and <b>Home</b>
+            in the toolbar. The address bar and status bar update as you browse.
+          </li>
+          <li>
+            <b>Keep your places.</b> Use <b>Favorites</b> and <b>History</b> to jump back to a page.
+            Add the current page with <b>Favorites → Add to Favorites</b>.
+          </li>
+          <li>
+            <b>Browse the Old Web.</b> Pick a year in the <b>Old Net</b> selector, then enter a
+            real address such as <code>www.winamp.com</code>. Archived sites open through The Old Net.
+          </li>
+          <li>
+            <b>Open a site from outside.</b> Visiting <code>pants.place/member/pants</code> in the
+            real browser boots this desktop and opens this window at the site. The old
+            <code>/users/pants</code> address still works too.
+          </li>
+        </ol>
       </div>
 
       <div class="web-panel web-panel-hot">
-        <h3>🎵 Now Playing</h3>
-        <p style="margin-bottom:6px">
-          The official Pants Place theme, composed by me in a shareware tracker. Press play to open it in Winamp.
+        <h3>TRY THESE ADDRESSES</h3>
+        <p style="margin-top:0">
+          Type any of these into the Address bar. They are all part of the fake web.
         </p>
-        <button
-          type="button"
-          style="padding:6px 12px;font-family:Arial;font-weight:700;background:#c0c0c0;border:2px outset #fff;"
-          onclick="parent.postMessage({type:'pants:play', id:'pants-theme-mid'}, '*')"
-        >
-          ▶ PLAY PANTS THEME.MID
-        </button>
+        <ul style="margin-bottom:0">
+          <li><a href="/web/news/">news</a> — updates from pants_the_person</li>
+          <li><a href="/web/blog/">blog</a> — the Pants Log</li>
+          <li><a href="/web/guestbook/">guestbook</a> — sign it, please</li>
+          <li><a href="/web/downloads/">downloads</a> — MIDI files and buttons</li>
+          <li><a href="/web/search/">search</a> — AltaVista-style web search</li>
+          <li><a href="/web/webring/">webring</a> — The Old Net Webring</li>
+        </ul>
+      </div>
+
+      <h2 id="local-webring">THE LOCAL WEBRING</h2>
+      <div class="web-panel">
+        <p>
+          A webring is a circle of websites. This one is the local ring: six sites that live
+          right here inside PantsNet. Visit one, then use its own links to find the others.
+        </p>
+        <p style="text-align:center">
+          <button type="button" id="local-ring-random" class="pantsnet-random">
+            🎲 RANDOM LOCAL SITE
+          </button>
+        </p>
+        <ul class="pantsnet-ring">
+          {personalSites.map((site) => (
+            <li>
+              <div class="pantsnet-ring-title">
+                <span class="pantsnet-ring-kind">{site.kind === 'member' ? 'MEMBER' : 'CHARACTER'}</span>{' '}
+                <a href={site.contentPath} data-local-ring>{site.title}</a>
+              </div>
+              <div class="pantsnet-ring-description">{site.description}</div>
+              <div class="pantsnet-ring-address">{site.address}</div>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <h2 id="oldnet-webring">THE OLD NET WEBRING</h2>
+      <div class="web-panel">
+        <p>
+          Below the local ring is the bigger ring: {oldnetMembers.length} retro sites, personal
+          homepages and small web projects mirrored from The Old Net. These open through the
+          archive, so expect a few missing images and a lot of animated GIFs.
+        </p>
+        <p style="text-align:center;margin-bottom:0">
+          <a href="/web/webring/"><b>Browse The Old Net Webring »</b></a>
+        </p>
       </div>
     </div>
 
     <aside>
       <div class="web-panel">
-        <h3>About Me</h3>
-        <p>
-          <b>Name:</b> pants_the_person<br />
-          <b>Location:</b> a bedroom with too many cables<br />
-          <b>Machine:</b> 486 DX2-66, 32 MB RAM<br />
-          <b>Browser:</b> Netscape 4.0<br />
-          <b>Status:</b> online via 56k
-        </p>
-      </div>
-
-      <div class="web-panel">
-        <h3>Cool Links</h3>
+        <h3>Quick Addresses</h3>
         <ul style="margin-left:16px">
-          <li><a href="/web/member/kylie/">Kylie's Cyber Sanctuary</a></li>
-          <li><a href="/web/member/shades/">UltimateShades</a></li>
-          <li><a href="/web/member/pants/">pants_the_person</a></li>
-          <li><a href="/web/member/pip/">pip's kewl page</a></li>
-          <li><a href="/web/char/chogi/">Chogi's Nest</a></li>
-          <li><a href="/web/char/jiroji/">JIROJI.EXE</a></li>
-          <li><a href="/web/webring/">The Old Net Webring</a></li>
-          <li><a href="/web/downloads/">MIDI downloads</a></li>
-          <li><a href="/web/search/">Search the web</a></li>
-          <li>
-            <a
-              href={oldNetProxyUrl('http://theoldnet.com/', 1998)}
-              data-oldnet-url="http://theoldnet.com/"
-              data-oldnet-year="1998"
-            >The Old Net archive</a>
-          </li>
+          {personalSites.map((site) => (
+            <li>
+              <a href={site.contentPath}>{site.displayName}</a>
+            </li>
+          ))}
         </ul>
       </div>
 
       <div class="web-panel">
-        <h3>UltimateShades</h3>
-        <p>
-          My friend's gaming shrine: Monkey Island, LucasArts adventures, high scores
-          and strong opinions about insult swordfighting.
+        <h3>Deep Links</h3>
+        <p style="font-size:14px">
+          Open a personal site from the real web:
         </p>
-        <p><a href="/web/member/shades/">Visit UltimateShades »</a></p>
-      </div>
-
-      <div class="web-panel">
-        <h3>Sign my guestbook!</h3>
-        <p>It has 38 entries and one of them is from my mom.</p>
-        <p><a href="/web/guestbook/">📖 Sign the guestbook »</a></p>
+        <p style="font-family:'Courier New',monospace;font-size:12px;line-height:1.5">
+          pants.place/member/pants<br />
+          pants.place/users/pants<br />
+          pants.place/char/chogi
+        </p>
+        <p style="font-size:13px;margin-bottom:0">
+          Add <code>?autostart=winamp.exe</code> to open an app too.
+        </p>
       </div>
 
       <div class="web-panel" style="text-align:center;background:#000;">
@@ -120,4 +134,17 @@ const blog = (await getBlog()).slice(0, 3);
       </div>
     </aside>
   </div>
+
+  <script is:inline>
+    (() => {
+      const button = document.getElementById('local-ring-random');
+      if (!button) return;
+      button.addEventListener('click', () => {
+        const links = Array.from(document.querySelectorAll('a[data-local-ring]'));
+        if (!links.length) return;
+        const link = links[Math.floor(Math.random() * links.length)];
+        if (link instanceof HTMLAnchorElement) location.href = link.href;
+      });
+    })();
+  </script>
 </WebLayout>
