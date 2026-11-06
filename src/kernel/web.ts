@@ -1,4 +1,4 @@
-import { contentPathForLauncherPath, personalSites, siteForLauncherPath } from './sites';
+import { contentPathForLauncherPath, personalSites, siteForContentPath, siteForLauncherPath } from './sites';
 
 export interface WebSite {
   host: string;
@@ -213,7 +213,13 @@ const personalWebSites: WebSite[] = personalSites.map((site) => ({
   title: site.title,
   description: site.description,
   favorite: site.favorite,
-  aliases: LEGACY_SITE_ALIASES[`${site.kind}/${site.slug}`],
+  aliases: [
+    // Sites used to be mirrored from GitHub Pages. Treat those URLs as local
+    // so links in already-published subsite pages keep working inside IE.
+    `https://pants-the-person.github.io/${site.repo}/`,
+    `http://pants-the-person.github.io/${site.repo}/`,
+    ...(LEGACY_SITE_ALIASES[`${site.kind}/${site.slug}`] || []),
+  ],
 }));
 
 export const webSites: WebSite[] = [...baseWebSites, ...personalWebSites];
@@ -222,23 +228,57 @@ function hostKey(value: string): string {
   return value
     .trim()
     .replace(/^https?:\/\//i, '')
+    .split(/[?#]/, 1)[0]
     .replace(/\/index\.html?$/i, '/')
     .replace(/\/+$/, '')
     .toLowerCase();
 }
 
+function personalHostPath(hostPath: string): string | null {
+  // Accept the aliases that used to point at the fake-web mirror as well as
+  // the plural form some links use.
+  const canonical = hostPath
+    .replace(/^members\//, 'member/')
+    .replace(/^users\//, 'member/');
+  const site = personalSites.find(
+    (entry) => canonical === `${entry.kind}/${entry.slug}` || canonical.startsWith(`${entry.kind}/${entry.slug}/`),
+  );
+  if (!site) return null;
+  const relative = canonical.slice(`${site.kind}/${site.slug}`.length).replace(/^\/+/, '');
+  return relative ? `${site.contentPath}${relative}/` : site.contentPath;
+}
+
 function pathFromHostPath(hostPath: string): string {
   const clean = hostPath.replace(/^\/+/, '').replace(/\/+$/, '');
   if (!clean) return '/web/';
+  const personal = personalHostPath(clean);
+  if (personal) return personal;
+  if (clean.startsWith('sites/')) {
+    const internal = `/${clean}/`;
+    if (siteForContentPath(internal)) return internal;
+  }
   return `/web/${clean}/`;
 }
 
 function normalizedPath(raw: string): string {
   let clean = raw.split(/[?#]/, 1)[0].replace(/\/index\.html?$/i, '/');
   // The original personal-site scheme used /users/<name>; canonicalize it to
-  // /member/<name> so old fake-web addresses keep working.
+  // /member/<name> so old fake-web and browser addresses keep working.
   if (/^\/web\/users(?:\/|$)/.test(clean)) {
     clean = `/web/member${clean.slice('/web/users'.length)}`;
+  }
+  if (/^\/web\/members(?:\/|$)/.test(clean)) {
+    clean = `/web/member${clean.slice('/web/members'.length)}`;
+  }
+  // Keep the removed ~pages inside the current sites.
+  clean = clean
+    .replace(/^\/web\/~pants(?=\/|$)/, '/web/member/pants')
+    .replace(/^\/web\/~kylie(?=\/|$)/, '/web/member/kylie')
+    .replace(/^\/web\/~ultimateshades(?=\/|$)/, '/web/member/shades');
+  // Personal sites used to be mirrored under /web/. They are now served by
+  // their own Workers under /sites/, so resolve the old path directly.
+  if (/^\/web\/(?:member|char)(?:\/|$)/.test(clean)) {
+    clean = `/sites${clean.slice('/web'.length)}`;
   }
   if (!clean.endsWith('/')) clean += '/';
   return clean;
@@ -265,12 +305,18 @@ export function addressToPath(input: string): string | null {
     return normalizedPath(raw);
   }
 
-  // Desktop launcher paths such as /member/pants, /users/pants or
-  // /char/chogi point at the generated content inside IE.
+  // Desktop launcher paths such as /member/pants, /members/pants,
+  // /users/pants or /char/chogi point at the desktop deep link.
   const launcherCandidate = raw.startsWith('/') ? raw : `/${raw}`;
-  if (/^\/(?:member|users|char)\//.test(launcherCandidate)) {
+  if (/^\/(?:member|members|users|char)\//.test(launcherCandidate)) {
     const site = siteForLauncherPath(launcherCandidate);
     if (site) return contentPathForLauncherPath(launcherCandidate, site);
+  }
+
+  // Internal routes used by the IE iframe. Accepting them makes the address
+  // bar resilient if a link points directly at the content origin.
+  if (launcherCandidate.startsWith('/sites/') && siteForContentPath(launcherCandidate)) {
+    return normalizedPath(launcherCandidate);
   }
 
   // Friendly shortcuts: "news", "blog", "kylie", etc.
@@ -311,7 +357,9 @@ export function addressToPath(input: string): string | null {
 }
 
 export function resolveWebPath(path: string): string {
-  // Only allow our own static web routes inside the browser frame.
+  // Only allow our own static web routes and personal-site Workers inside the
+  // browser frame.
   if (path.startsWith('/web/') || path === '/web') return path;
+  if (siteForLauncherPath(path) || siteForContentPath(path)) return path;
   return '/web/cannot/';
 }

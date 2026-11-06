@@ -141,8 +141,3 @@ dist
 /public/vfs-static/
 /public/vfs-static.index.json
 /public/vfs-static.meta.json
-
-# Personal site submodule build output
-/public/web/member/
-/public/web/char/
-/.cache/sites/

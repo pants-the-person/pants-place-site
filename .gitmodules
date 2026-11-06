@@ -1,27 +1,3 @@
 [submodule "vendor/wine-assembly"]
 	path = vendor/wine-assembly
 	url = https://github.com/vgrichina/berrry-wine
-[submodule "sites/member/pants"]
-	path = sites/member/pants
-	url = https://github.com/pants-the-person/site-member-pants.git
-	branch = main
-[submodule "sites/member/kylie"]
-	path = sites/member/kylie
-	url = https://github.com/pants-the-person/site-member-kylie.git
-	branch = main
-[submodule "sites/member/shades"]
-	path = sites/member/shades
-	url = https://github.com/pants-the-person/site-member-shades.git
-	branch = main
-[submodule "sites/member/pip"]
-	path = sites/member/pip
-	url = https://github.com/pants-the-person/site-member-pip.git
-	branch = main
-[submodule "sites/char/chogi"]
-	path = sites/char/chogi
-	url = https://github.com/pants-the-person/site-char-chogi.git
-	branch = main
-[submodule "sites/char/jiroji"]
-	path = sites/char/jiroji
-	url = https://github.com/pants-the-person/site-char-jiroji.git
-	branch = main

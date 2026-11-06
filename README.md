@@ -7,7 +7,7 @@ A functional Windows 98-style desktop that runs entirely in the browser.
 - **Winamp 2.91** with the original base-skin sprites, playlist, 10-band EQ and spectrum analyser. Plays **MIDI** through a General MIDI SoundFont and **OGG/Opus/MP3/WAV** through the Web Audio API.
 - **Internet Explorer 5** clone browsing a fake 1998 internet at `/web/` with news, a devlog, guestbook, webring, downloads and an AltaVista-style search. It can also browse archived real websites through **The Old Net**, with a year selector, URL tracking and Copy Link.
 - **The Old Net Webring** with 223 scraped retro sites and a filter/random button.
-- **Six personal sites** under `/member/` and `/char/`, each maintained in its own Astro git submodule. Visiting a site path boots the desktop and opens IE directly at that page.
+- **Six personal sites** under `/member/` and `/char/`, each maintained and deployed independently as its own static Worker.
 - **Explorer, Notepad, Paint, Minesweeper, Calculator, Display Properties and Help**.
 - **Wine-Assembly** running 41 real Windows 98 programs and games from mirrored `.exe` files in a WebAssembly x86 emulator. Open them from **Start → Programs → Accessories**, **Games**, or **System Tools**.
 - **Three VFS drives**: writable `C:` with the full Windows 98 mock tree, read-only `D:` backed by the R2 bucket, and read-only `A:` backed by the FreeDOS boot floppy. Explorer, Notepad and Wine share `C:`.
@@ -205,41 +205,74 @@ The webring page links members through The Old Net archive and supports filterin
 
 ## Personal sites
 
-The member and character homepages live in separate repositories and are mounted as git submodules:
+The member and character homepages live in separate repositories and are
+deployed as independent Cloudflare Workers. Each Worker serves an internal
+`/sites/...` route; the public path is the desktop deep link:
 
 ```text
-sites/member/pants/     -> https://github.com/pants-the-person/site-member-pants
-sites/member/kylie/     -> https://github.com/pants-the-person/site-member-kylie
-sites/member/shades/    -> https://github.com/pants-the-person/site-member-shades
-sites/member/pip/       -> https://github.com/pants-the-person/site-member-pip
-sites/char/chogi/       -> https://github.com/pants-the-person/site-char-chogi
-sites/char/jiroji/      -> https://github.com/pants-the-person/site-char-jiroji
+site-member-pants   -> https://github.com/pants-the-person/site-member-pants   -> /member/pants
+site-member-kylie   -> https://github.com/pants-the-person/site-member-kylie   -> /member/kylie
+site-member-shades  -> https://github.com/pants-the-person/site-member-shades  -> /member/shades
+site-member-pip     -> https://github.com/pants-the-person/site-member-pip     -> /member/pip
+site-char-chogi     -> https://github.com/pants-the-person/site-char-chogi     -> /char/chogi
+site-char-jiroji    -> https://github.com/pants-the-person/site-char-jiroji    -> /char/jiroji
 ```
 
-Each repository is a static Astro site with no JavaScript. `npm run build` runs `scripts/sites/build.mjs`, which:
+They are **not** git submodules and they are **not** built by this repository.
+Each repository owns a `wrangler.jsonc` and is deployed as its own assets-only
+Worker. The Worker is mounted under the internal `/sites/<kind>/<slug>/*`
+namespace; the parent keeps the public `/member/<slug>` and `/char/<slug>` deep
+links. A push to one subsite deploys only that Worker; the desktop does not
+rebuild.
 
-- builds every site under `sites/*/*`
-- installs its dependencies with `npm ci`
-- copies its `dist/` output to `public/web/<kind>/<slug>/`
-- rewrites its GitHub Pages base path to the local fake-web path
-- rewrites links between the personal sites to local `/web/...` paths
-- strips `<script>` tags and inline handlers so the no-JS rule is enforced
-- generates `src/generated/personal-sites.ts`
+The parent keeps a checked-in description of each site in
+`src/data/personal-sites.ts` for the Start menu, IE favorites, webring and
+search. It contains only metadata (title, description, public path, internal
+path, favorite flag), no site source.
 
-The current site template includes a small hit-counter script. It is stripped by
-the parent build, so the counter shows its default zeroes unless the site renders
-a static number.
+Each site is an assets-only Astro build with
+`base: "/sites/member/<slug>"` and
+`assets.base_path: "/sites/member/<slug>"`, so Cloudflare serves the files at
+the internal route without a Worker script:
 
-The generated content is ignored by git. Rebuild it manually with:
+```text
+request:           /sites/member/pants/about/
+asset served from: ./dist/about/index.html
+```
+
+Cloudflare route matching is most-specific-first, so:
+
+```text
+pants.place/sites/member/pants/*  -> pants-place-member-pants Worker
+pants.place/*                     -> pants-place-site Worker (everything else)
+```
+
+`/member/<slug>` is a parent-owned desktop deep link. The parent generates a
+launcher page there, proxies nested paths such as `/member/pants/about` to that
+launcher with `_redirects`, and the launcher opens IE at the same fake address.
+IE loads the actual content from `/sites/member/<slug>/...`, so the address bar
+still reads `http://www.pants.place/member/pants/about/`.
+
+`/members/<slug>` and `/users/<slug>` redirect to `/member/<slug>`. Old
+`/web/member/...`, `/web/char/...` and `~pants`/`~kylie`/`~ultimateshades`
+addresses redirect to the new paths.
+
+The setup helper and full per-repository instructions live in
+[`scripts/subsites/README.md`](scripts/subsites/README.md). The short version,
+run from this repository against a subsite checkout:
 
 ```bash
-npm run sites:build
-npm run sites:build:force
+node scripts/subsites/setup.mjs --dir ../site-member-pants --kind member --slug pants
 ```
 
-### Path-based autostart
+That writes `wrangler.jsonc`, sets the Astro internal `base`, and rewrites
+cross-site GitHub Pages links to `https://pants.place/sites/...`. Deploy the site
+from its own repository with Cloudflare Workers Builds (`npm run build` then
+`npx wrangler@4 deploy`) or the optional generated GitHub Actions workflow.
 
-Every site page is also a desktop deep link:
+### Path-based desktop entry
+
+Every site path is a desktop deep link:
 
 ```text
 /member/pants
@@ -251,19 +284,23 @@ Every site page is also a desktop deep link:
 /char/jiroji
 ```
 
-Visiting one of those paths renders the desktop and opens IE at the corresponding fake address, for example `http://www.pants.place/member/pants/`. Internal content stays at `/web/member/pants/`, so the IE iframe never loads the desktop inside itself.
+Visiting one of those paths renders the desktop and opens IE at the
+corresponding fake address, for example `http://www.pants.place/member/pants/`.
+Internal content stays at `/sites/member/pants/`, so the IE iframe never loads
+the desktop inside itself.
 
-Members also accept the original `/users/<name>` form, including nested pages and query autostart:
+Members also accept the original `/users/<name>` form, including nested pages:
 
 ```text
 /users/pants
 /users/pants/about
-/users/pants?autostart=winamp.exe
 ```
 
-The IE homepage at `/web/` is a PantsNet start page: it explains the browser controls, links the local webring, and places The Old Net Webring underneath it.
+The IE homepage at `/web/` is a PantsNet start page: it explains the browser
+controls, links the local webring, and places The Old Net Webring underneath it.
 
-The old `~pants`, `~kylie` and `~ultimateshades` pages were removed. Their URLs redirect to the new sites, and their Tripod/GeoCities aliases still resolve.
+The old `~pants`, `~kylie` and `~ultimateshades` pages were removed. Their URLs
+redirect to the new sites, and their Tripod/GeoCities aliases still resolve.
 
 ### Query-based autostart
 
@@ -276,42 +313,23 @@ The old `~pants`, `~kylie` and `~ultimateshades` pages were removed. Their URLs 
 /member/pants?autostart=winamp.exe
 ```
 
-`.exe` names resolve to their Wine equivalents where one exists. Path autostart and query autostart are independent and combine on the same URL.
+`.exe` names resolve to their Wine equivalents where one exists. Path autostart
+and query autostart are independent and combine on the same URL.
 
 ### Adding a site
 
 1. Create a repository named `site-<kind>-<slug>`.
-2. Add it with `git submodule add -b main <repo-url> sites/<kind>/<slug>`.
-3. Run `npm run sites:build` and commit `src/generated/personal-sites.ts`.
-4. Commit the new submodule pointer. The scheduled sync workflow will keep it updated after that.
+2. Add its metadata to `src/data/personal-sites.ts`.
+3. Add `/kind/slug/* /kind/slug/ 200` to `public/_redirects` for nested deep
+   links.
+4. Run `node scripts/subsites/setup.mjs --dir ../site-<kind>-<slug> --kind <kind> --slug <slug>`.
+5. Deploy its Worker and verify `https://pants.place/<kind>/<slug>/` and
+   `https://pants.place/sites/<kind>/<slug>/`.
+6. Commit the metadata and redirect changes here.
 
-Because the parent build executes each site's `npm ci` and `npm run build`, review submodule bumps before deploying. Build sub-sites in a job without parent deploy secrets if the site authors are not fully trusted.
-
-### Automatic updates
-
-`.github/workflows/sync-personal-sites.yml` runs every 15 minutes and can also be started manually from the Actions tab.
-
-It:
-
-- runs `npm run sites:sync` to move every site submodule to the latest commit on its remote `main`
-- runs `npm run sites:metadata` to regenerate `src/generated/personal-sites.ts`
-- commits the changed submodule pointers only when something actually changed
-- pushes to `main`, which triggers the existing Cloudflare Workers Build deploy
-
-No Cloudflare secrets are needed in GitHub Actions: Cloudflare already deploys from pushes to `main`.
-
-The workflow also listens for a `personal-site-updated` repository dispatch. If you want immediate updates instead of waiting for the schedule, add a dispatch step to each site repo:
-
-```yaml
-- name: Notify pants.place
-  uses: peter-evans/repository-dispatch@v3
-  with:
-    token: ${{ secrets.PANTS_PLACE_DISPATCH_TOKEN }}
-    repository: pants-the-person/pants-place-site
-    event-type: personal-site-updated
-```
-
-That requires a token with write access to this repository, stored as a secret in each site repo.
+Site authors can update and deploy their own repository without touching this
+one. Because the parent no longer runs their `npm ci` or build scripts, a site
+repository cannot execute code in the parent Cloudflare build or deployment.
 
 ## Deployment
 
@@ -369,6 +387,7 @@ The site code is released under the MIT license in `LICENSE`. Third-party assets
 - `npm run wine:verify` — validate the asset mirror against `wine-assets.lock.json`
 - `npm run wine:smoke` — Playwright check for the Start menu entries, two Wine windows, dropped `.exe`, and FreeDOS input isolation
 - `npm run sync:webring` — refresh the scraped The Old Net Webring snapshot
+- `npm run subsites:setup -- --dir <checkout> --kind <kind> --slug <slug>` — convert a personal-site repo into its own static Worker
 - `npm run generate:media` — regenerate the demo MIDI files
 - `npm run generate:og` — regenerate `public/og.png`
 

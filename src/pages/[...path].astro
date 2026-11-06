@@ -1,12 +1,21 @@
 ---
 import DesktopPage from '../components/os/DesktopPage.astro';
 import { getDesktopDocuments } from '../lib/desktop';
-import { routesForPersonalSites } from '../lib/personal-site-routes';
 import { personalSites, type PersonalSite } from '../kernel/sites';
 import type { PersonalSiteDeepLink } from '../kernel/autostart';
 
+/** Public desktop deep links. Nested paths are proxied to this page by _redirects. */
 export function getStaticPaths() {
-  return routesForPersonalSites(personalSites);
+  return personalSites.map((site) => ({
+    params: { path: site.launcherPath.replace(/^\/+/, '') },
+    props: {
+      site,
+      deepLink: {
+        siteId: `${site.kind}/${site.slug}`,
+        address: site.address,
+      } satisfies PersonalSiteDeepLink,
+    },
+  }));
 }
 
 const { site, deepLink } = Astro.props as { site: PersonalSite; deepLink: PersonalSiteDeepLink };

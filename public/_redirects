@@ -2,20 +2,42 @@
 /.well-known/matrix/server /.well-known/matrix/server.json 200
 /.well-known/matrix/support /.well-known/matrix/support.json 200
 
-# Removed personal pages. Keep old links working inside the fake web and from
-# the public domain.
-/web/~pants/ /web/member/pants/ 301
-/web/~kylie/ /web/member/kylie/ 301
-/web/~ultimateshades/ /web/member/shades/ 301
-/web/users/ /web/member/ 301
-/~pants/ /member/pants 301
-/~kylie/ /member/kylie 301
-/~ultimateshades/ /member/shades 301
+# Personal sites are standalone Workers under /sites/, while the parent owns the
+# public /member/<slug> and /char/<slug> deep links. Keep old fake-web paths,
+# the /users alias and the plural /members form working.
+/web/member/ /web/ 301
+/web/char/ /web/ 301
+/web/users/ /web/ 301
+/web/members/ /web/ 301
+/web/member /web/ 301
+/web/char /web/ 301
+/web/users /web/ 301
+/web/members /web/ 301
 
-/web/~pants/* /web/member/pants/:splat 301
-/web/~kylie/* /web/member/kylie/:splat 301
-/web/~ultimateshades/* /web/member/shades/:splat 301
-/web/users/* /web/member/:splat 301
+/web/member/* /member/:splat 301
+/web/char/* /char/:splat 301
+/web/users/* /member/:splat 301
+/web/members/* /member/:splat 301
+
+/members/* /member/:splat 301
+/users/* /member/:splat 301
+/members /web/ 301
+/users /web/ 301
+
+# Removed personal pages. Keep old links working.
+/web/~pants/* /member/pants/:splat 301
+/web/~kylie/* /member/kylie/:splat 301
+/web/~ultimateshades/* /member/shades/:splat 301
 /~pants/* /member/pants/:splat 301
 /~kylie/* /member/kylie/:splat 301
 /~ultimateshades/* /member/shades/:splat 301
+
+# Deep links below the site root render the desktop launcher page. The launcher
+# reads the real URL and opens IE at the matching page; IE loads the site from
+# its internal /sites/... Worker route.
+/member/pants/* /member/pants/ 200
+/member/kylie/* /member/kylie/ 200
+/member/shades/* /member/shades/ 200
+/member/pip/* /member/pip/ 200
+/char/chogi/* /char/chogi/ 200
+/char/jiroji/* /char/jiroji/ 200

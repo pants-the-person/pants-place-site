@@ -20,6 +20,8 @@ import {
   addressForLauncherPath,
   contentPathForLauncherPath,
   isPersonalContentPath,
+  launcherPathForContentPath,
+  siteForContentPath,
   siteForLauncherPath,
 } from '../../kernel/sites';
 import { writeTextFile } from '../../kernel/content';
@@ -236,7 +238,14 @@ export default function InternetExplorer({ appProps, api, windowId }: AppProps) 
   function go(raw: string) {
     const trimmed = raw.trim();
     if (!trimmed) return;
-    const internalPath = trimmed.startsWith('/web') ? trimmed : addressToPath(trimmed);
+    // Preserve query/hash while canonicalizing /web/... paths (including old
+    // personal-site mirrors) to the routes IE can load directly.
+    const suffixAt = trimmed.search(/[?#]/);
+    const pathname = suffixAt >= 0 ? trimmed.slice(0, suffixAt) : trimmed;
+    const suffix = suffixAt >= 0 ? trimmed.slice(suffixAt) : '';
+    const internalPath = trimmed.startsWith('/web')
+      ? `${addressToPath(pathname) ?? pathname}${suffix}`
+      : addressToPath(trimmed);
     if (internalPath) {
       const queryAt = internalPath.indexOf('?');
       const internalPathOnly = queryAt >= 0 ? internalPath.slice(0, queryAt) : internalPath;
@@ -382,15 +391,36 @@ export default function InternetExplorer({ appProps, api, windowId }: AppProps) 
           return;
         }
         if (absolute.origin !== window.location.origin) {
+          // Personal sites used to be mirrored from GitHub Pages. If this URL
+          // belongs to one of our sites, keep it inside PantsNet.
+          const localPath = addressToPath(absolute.href);
+          if (localPath) {
+            event.preventDefault();
+            const localPathname = localPath.split(/[?#]/, 1)[0];
+            loadPath(
+              `${localPathname}${absolute.search}${absolute.hash}`,
+              `${pathToAddress(localPathname)}${absolute.search}${absolute.hash}`,
+            );
+            return;
+          }
           event.preventDefault();
           void loadExternal(absolute.href, yearRef.current, true);
           return;
         }
-        const site = siteForLauncherPath(absolute.pathname);
+
+        // Leave non-HTML files (images, downloads) to the iframe.
+        if (/\.[a-z0-9]+$/i.test(absolute.pathname) && !/\.html?$/i.test(absolute.pathname)) return;
+
+        const launcherSite = siteForLauncherPath(absolute.pathname);
+        const contentSite = launcherSite ? null : siteForContentPath(absolute.pathname);
+        const site = launcherSite || contentSite;
         if (site) {
           event.preventDefault();
-          const nextPath = `${contentPathForLauncherPath(absolute.pathname, site)}${absolute.search}${absolute.hash}`;
-          const nextAddress = `${addressForLauncherPath(absolute.pathname, site)}${absolute.search}${absolute.hash}`;
+          const launcherPath = launcherSite
+            ? absolute.pathname
+            : launcherPathForContentPath(absolute.pathname, site);
+          const nextPath = `${contentPathForLauncherPath(launcherPath, site)}${absolute.search}${absolute.hash}`;
+          const nextAddress = `${addressForLauncherPath(launcherPath, site)}${absolute.search}${absolute.hash}`;
           loadPath(nextPath, nextAddress);
         }
       },

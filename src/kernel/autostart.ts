@@ -132,7 +132,7 @@ export function startDeepLink(
   const pathname = options.pathname ?? (typeof window !== 'undefined' ? window.location.pathname : '/');
   const site = siteForDeepLink(deepLink, pathname);
   const address = site
-    ? deepLink?.address || addressForLauncherPath(pathname, site)
+    ? addressForLauncherPath(pathname, site) || deepLink?.address || ''
     : '';
 
   if (site && address) {
