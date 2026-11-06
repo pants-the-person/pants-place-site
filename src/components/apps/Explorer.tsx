@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
-  fileSystem,
+  drives,
   createFolder,
   createTextFile,
+  readTextFile,
   readFileBytes,
   uploadFiles,
   renameNode,
@@ -19,15 +20,24 @@ import MenuBar, { type AppMenu } from '../os/MenuBar';
 import { joinWindowsPath, quoteWindowsArg, splitWindowsPath } from '../../kernel/paths';
 import { showDialog } from '../../kernel/dialogs';
 import { playSound } from '../../kernel/audio';
-import { playTrackById } from '../../kernel/player';
+import { enqueueVfsTrack, playTrackById, playVfsTrack } from '../../kernel/player';
 import type { AppProps } from '../../kernel/types';
 
 const WINE_EXTENSIONS = /\.(exe|zip|iso|cue|bin)$/i;
+const MEDIA_EXTENSIONS = /\.(mid|midi|ogg|oga|opus|mp3|wav|flac|m4a|aac)$/i;
 
 const folders = ['My Documents', 'Media', 'Downloads', 'Desktop', 'Program Files', 'Windows', 'Temp'];
 
+function normalizeExplorerPath(input: string[]): string[] {
+  if (!input.length) return [];
+  const first = input[0];
+  if (!first) return [];
+  if (/^[a-z]:$/i.test(first)) return [`${first[0].toUpperCase()}:`, ...input.slice(1)];
+  return ['C:', ...input];
+}
+
 export default function Explorer({ appProps, api }: AppProps) {
-  const initialPath = (appProps.path as string[] | undefined) ?? [];
+  const initialPath = normalizeExplorerPath((appProps.path as string[] | undefined) ?? []);
   const network = Boolean(appProps.network);
   const recycle = Boolean(appProps.recycle);
   const [path, setPath] = useState<string[]>(initialPath);
@@ -36,32 +46,42 @@ export default function Explorer({ appProps, api }: AppProps) {
   const [view, setView] = useState<'icons' | 'details'>('icons');
   const [dragging, setDragging] = useState(false);
   const [storageLabel, setStorageLabel] = useState('Local filesystem');
-  const [addressInput, setAddressInput] = useState('C:\\');
+  const [addressInput, setAddressInput] = useState('My Computer');
   const [showStatus, setShowStatus] = useState(true);
   const wineInputRef = useRef<HTMLInputElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
+  const driveInfo = path.length
+    ? drives.value.find((drive) => drive.id === path[0][0].toUpperCase()) ?? null
+    : null;
   const folder = useMemo(() => {
-    const node = findNode(fileSystem.value, path);
-    return node?.type === 'folder' ? node : fileSystem.value;
-  }, [path, fileSystem.value]);
-
-  const entries = folder.type === 'folder' ? folder.children : [];
+    if (!path.length) return null;
+    if (!driveInfo) return null;
+    const node = findNode(driveInfo.root, path.slice(1));
+    return node?.type === 'folder' ? node : driveInfo.root;
+  }, [path, drives.value]);
+  const entries: Array<VfsFolder | VfsFile> = path.length
+    ? folder?.type === 'folder'
+      ? folder.children
+      : []
+    : drives.value.map((drive) => drive.root);
   const coarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
   const selectedEntry = entries.find((entry) => entry.name === selected) || null;
-  const parentPath = joinWindowsPath(path, 'c');
+  const readOnly = !path.length || Boolean(driveInfo?.readOnly);
+  const parentPath = path.length ? joinWindowsPath(path) : '';
 
   useEffect(() => {
     void updateStorageLabel();
   }, []);
 
-  const address = joinWindowsPath(path);
+  const address = path.length ? joinWindowsPath(path) : 'My Computer';
   const layerSummary = useMemo(() => {
     const layers = layerStatus.value;
     return [
       layers.opfs === 'ready' ? 'OPFS' : 'session',
-      layers.r2 === 'ready' ? 'R2' : layers.r2 === 'empty' ? 'R2 empty' : 'R2 off',
-      layers.static === 'ready' ? 'static' : 'static off',
+      layers.static === 'ready' ? 'C mock' : 'C off',
+      layers.r2 === 'ready' ? 'D R2' : layers.r2 === 'empty' ? 'D empty' : 'D off',
+      layers.floppy === 'ready' ? 'A floppy' : 'A off',
     ].join(' · ');
   }, [layerStatus.value]);
 
@@ -71,7 +91,7 @@ export default function Explorer({ appProps, api }: AppProps) {
 
   function navigate(next: string[]) {
     setHistory((h) => [...h, path]);
-    setPath(next);
+    setPath(normalizeExplorerPath(next));
     setSelected(null);
     playSound('click');
   }
@@ -79,7 +99,7 @@ export default function Explorer({ appProps, api }: AppProps) {
   function up() {
     if (!path.length) return;
     setHistory((h) => [...h, path]);
-    setPath(path.slice(0, -1));
+    setPath(path.length === 1 ? [] : path.slice(0, -1));
     setSelected(null);
   }
 
@@ -108,6 +128,16 @@ export default function Explorer({ appProps, api }: AppProps) {
 
   async function importFiles(files: File[]) {
     if (!files.length) return;
+    if (readOnly || !parentPath) {
+      void showDialog({
+        title: 'Copy File',
+        message: 'That drive is read-only.',
+        detail: 'Choose a folder on C: to copy or upload files.',
+        kind: 'warning',
+        icon: '/icons/folder.svg',
+      });
+      return;
+    }
     try {
       await uploadFiles(parentPath, files);
       playSound('click');
@@ -175,6 +205,7 @@ export default function Explorer({ appProps, api }: AppProps) {
   }
 
   async function newFolder() {
+    if (readOnly) return;
     const name = await promptName('New Folder', 'Create a new folder in this location.', 'New Folder');
     if (!name) return;
     try {
@@ -187,6 +218,7 @@ export default function Explorer({ appProps, api }: AppProps) {
   }
 
   async function newTextFile() {
+    if (readOnly) return;
     const name = await promptName('New Text Document', 'Create a new text document in this location.', 'New Text Document.txt');
     if (!name) return;
     try {
@@ -199,7 +231,7 @@ export default function Explorer({ appProps, api }: AppProps) {
   }
 
   async function renameSelected() {
-    if (!selectedEntry) return;
+    if (!selectedEntry || readOnly) return;
     const name = await promptName('Rename', `Rename "${selectedEntry.name}" to:`, selectedEntry.name);
     if (!name || name === selectedEntry.name) return;
     try {
@@ -213,7 +245,7 @@ export default function Explorer({ appProps, api }: AppProps) {
   }
 
   async function deleteSelected() {
-    if (!selectedEntry) return;
+    if (!selectedEntry || readOnly) return;
     const result = await showDialog({
       title: 'Confirm File Delete',
       message: `Are you sure you want to delete "${selectedEntry.name}"?`,
@@ -238,16 +270,27 @@ export default function Explorer({ appProps, api }: AppProps) {
   function entryMenu(entry: VfsFolder | VfsFile, event: MouseEvent) {
     event.stopPropagation();
     setSelected(entry.name);
-    const entryPath = entry.path || `${parentPath}\\${entry.name}`;
+    const entryPath = entry.path || (parentPath ? `${parentPath}\\${entry.name}` : entry.name);
+    const driveEntry = entry.type === 'folder' && /^[a-z]:$/i.test(entry.name);
+    const media = entry.type === 'file' && MEDIA_EXTENSIONS.test(entry.name);
     openContextMenu(event, [
       { label: 'Open', action: () => void openEntry(entry) },
-      ...(entry.type === 'file' && entry.ext === 'exe'
+      ...(media
+        ? [{
+            label: 'Enqueue in Winamp',
+            action: () => {
+              openApp('winamp');
+              void enqueueVfsTrack(entryPath, entry.name);
+            },
+          }]
+        : []),
+      ...(entry.type === 'file' && entry.ext === 'exe' && driveInfo?.drive === 'c'
         ? [{ label: 'Run with Wine...', action: () => openWinePath(entryPath, entry.name) }]
         : []),
-      ...(entry.type === 'file' && (entry.ext === 'zip' || entry.ext === 'iso' || entry.ext === 'cue')
+      ...(entry.type === 'file' && (entry.ext === 'zip' || entry.ext === 'iso' || entry.ext === 'cue') && driveInfo?.drive === 'c'
         ? [{ label: 'Open with Wine...', action: () => void openEntry(entry) }]
         : []),
-      ...(entry.type === 'file'
+      ...(entry.type === 'file' && driveInfo?.drive === 'c'
         ? [{
             label: 'Open With',
             children: [
@@ -267,15 +310,19 @@ export default function Explorer({ appProps, api }: AppProps) {
           );
         },
       },
-      { label: 'Rename', action: () => void renameSelected() },
-      { label: 'Delete', action: () => void deleteSelected() },
+      ...(!readOnly && !driveEntry
+        ? [
+            { label: 'Rename', action: () => void renameSelected() },
+            { label: 'Delete', action: () => void deleteSelected() },
+          ]
+        : []),
       { separator: true },
       {
         label: 'Properties',
         action: () => void showDialog({
           title: `${entry.name} Properties`,
-          message: entry.type === 'folder' ? 'File Folder' : `${entry.ext.toUpperCase()} File`,
-          detail: `${entryPath}\n${entry.type === 'file' ? sizeLabel(entry.size) : 'Folder'}\nModified: ${entry.modified}`,
+          message: entry.type === 'folder' ? (driveEntry ? driveInfo?.label ?? 'Drive' : 'File Folder') : `${entry.ext.toUpperCase()} File`,
+          detail: `${entryPath}\n${entry.type === 'file' ? sizeLabel(entry.size) : 'Folder'}${readOnly ? '\nRead-only' : ''}\nModified: ${entry.modified}`,
           icon: iconFor(entry),
         }),
       },
@@ -287,16 +334,18 @@ export default function Explorer({ appProps, api }: AppProps) {
     event.stopPropagation();
     setSelected(null);
     openContextMenu(event, [
-      {
-        label: 'New',
-        children: [
-          { label: 'Folder', icon: '/icons/folder.svg', action: () => void newFolder() },
-          { label: 'Text Document', icon: '/icons/notepad.svg', action: () => void newTextFile() },
-        ],
-      },
-      { label: 'Upload...', icon: '/icons/folder-open.svg', action: () => uploadInputRef.current?.click() },
+      ...(!readOnly
+        ? [{
+            label: 'New',
+            children: [
+              { label: 'Folder', icon: '/icons/folder.svg', action: () => void newFolder() },
+              { label: 'Text Document', icon: '/icons/notepad.svg', action: () => void newTextFile() },
+            ],
+          },
+          { label: 'Upload...', icon: '/icons/folder-open.svg', action: () => uploadInputRef.current?.click() }]
+        : []),
       { separator: true },
-      { label: 'Refresh', action: () => window.dispatchEvent(new Event('pants:refresh-desktop')) },
+      { label: 'Refresh', action: () => void refreshFileSystem() },
       {
         label: 'View',
         children: [
@@ -314,7 +363,7 @@ export default function Explorer({ appProps, api }: AppProps) {
         ],
       },
       { separator: true },
-      { label: 'Properties', action: () => void showDialog({ title: `${address} Properties`, message: 'Local Disk (C:)', detail: storageLabel, icon: '/icons/computer.svg' }) },
+      { label: 'Properties', action: () => void showDialog({ title: `${address} Properties`, message: driveInfo?.label ?? 'My Computer', detail: `${storageLabel}${readOnly ? '\nRead-only' : ''}`, icon: driveInfo?.icon ?? '/icons/computer.svg' }) },
     ]);
   }
 
@@ -332,16 +381,35 @@ export default function Explorer({ appProps, api }: AppProps) {
       }
       return;
     }
-    if (entry.openWith === 'winamp') {
+    if (entry.openWith === 'winamp' || MEDIA_EXTENSIONS.test(entry.name)) {
       openApp('winamp');
-      if (entry.props?.mediaId) playTrackById(String(entry.props.mediaId));
+      if (entry.props?.mediaId && playTrackById(String(entry.props.mediaId))) return;
+      try {
+        await playVfsTrack(entryPath, entry.name);
+      } catch (error) {
+        void showDialog({
+          title: 'Winamp',
+          message: `The file could not be read.`,
+          detail: error instanceof Error ? error.message : String(error),
+          kind: 'error',
+          icon: '/icons/winamp.svg',
+        });
+      }
       return;
     }
     if (entry.ext === 'exe') {
+      if (driveInfo?.drive !== 'c') {
+        void showDialog({ title: 'Windows', message: 'This program cannot be run from a read-only drive.', icon: '/icons/computer.svg', kind: 'warning' });
+        return;
+      }
       openWinePath(entryPath, entry.name);
       return;
     }
     if (entry.ext === 'zip' || entry.ext === 'iso' || entry.ext === 'cue') {
+      if (driveInfo?.drive !== 'c') {
+        void showDialog({ title: 'Wine-Assembly', message: 'Copy the disc image to C: before running it.', icon: '/icons/wine.svg', kind: 'warning' });
+        return;
+      }
       try {
         const bytes = await readFileBytes(entryPath);
         openWineDrop([new File([bytes], entry.name)], entry.name);
@@ -351,10 +419,25 @@ export default function Explorer({ appProps, api }: AppProps) {
       return;
     }
     if (entry.openWith === 'notepad' || entry.ext === 'txt' || entry.ext === 'md') {
-      openWineApp('notepad', {
-        args: quoteWindowsArg(entryPath),
-        title: `${entry.name} - Notepad`,
-      });
+      if (driveInfo?.drive === 'c') {
+        openWineApp('notepad', {
+          args: quoteWindowsArg(entryPath),
+          title: `${entry.name} - Notepad`,
+        });
+      } else {
+        try {
+          const body = await readTextFile(entryPath);
+          openApp('notepad', { title: entry.name, filename: entry.name, body });
+        } catch (error) {
+          void showDialog({
+            title: 'Notepad',
+            message: `The file could not be read.`,
+            detail: error instanceof Error ? error.message : String(error),
+            kind: 'error',
+            icon: '/icons/notepad.svg',
+          });
+        }
+      }
       return;
     }
     void showDialog({
@@ -367,7 +450,13 @@ export default function Explorer({ appProps, api }: AppProps) {
   }
 
   function iconFor(entry: VfsFolder | VfsFile) {
-    if (entry.type === 'folder') return '/icons/folder.svg';
+    if (entry.type === 'folder') {
+      if (/^[a-z]:$/i.test(entry.name)) {
+        const drive = drives.value.find((item) => item.id === entry.name[0].toUpperCase());
+        if (drive) return drive.icon;
+      }
+      return '/icons/folder.svg';
+    }
     if (entry.icon) return entry.icon;
     if (entry.openWith === 'winamp') return '/icons/winamp.svg';
     if (entry.openWith === 'ie') return '/icons/ie.svg';
@@ -376,6 +465,7 @@ export default function Explorer({ appProps, api }: AppProps) {
     if (entry.openWith === 'minesweeper') return '/icons/mine.svg';
     if (entry.openWith === 'calculator') return '/icons/calculator.svg';
     if (entry.name.endsWith('.lnk')) return '/icons/folder.svg';
+    if (MEDIA_EXTENSIONS.test(entry.name)) return '/icons/winamp.svg';
     return '/icons/file-text.svg';
   }
 
@@ -397,9 +487,9 @@ export default function Explorer({ appProps, api }: AppProps) {
       items: [
         { label: 'New Window', action: () => openApp('computer', { path }) },
         { separator: true },
-        { label: 'New Folder', icon: '/icons/folder.svg', action: () => void newFolder() },
-        { label: 'New Text Document', icon: '/icons/notepad.svg', action: () => void newTextFile() },
-        { label: 'Upload...', icon: '/icons/folder-open.svg', action: () => uploadInputRef.current?.click() },
+        { label: 'New Folder', icon: '/icons/folder.svg', disabled: readOnly, action: () => void newFolder() },
+        { label: 'New Text Document', icon: '/icons/notepad.svg', disabled: readOnly, action: () => void newTextFile() },
+        { label: 'Upload...', icon: '/icons/folder-open.svg', disabled: readOnly, action: () => uploadInputRef.current?.click() },
         { separator: true },
         { label: 'Run with Wine...', icon: '/icons/wine.svg', action: () => wineInputRef.current?.click() },
         { separator: true },
@@ -414,15 +504,15 @@ export default function Explorer({ appProps, api }: AppProps) {
           disabled: !selectedEntry,
           action: () => {
             if (!selectedEntry) return;
-            const target = selectedEntry.path || `${parentPath}\\${selectedEntry.name}`;
+            const target = selectedEntry.path || (parentPath ? `${parentPath}\\${selectedEntry.name}` : selectedEntry.name);
             void navigator.clipboard?.writeText(target).then(
               () => api.notify(`Copied ${target}`),
               () => api.notify('The browser denied clipboard access.'),
             );
           },
         },
-        { label: 'Rename', disabled: !selectedEntry, action: () => void renameSelected() },
-        { label: 'Delete', disabled: !selectedEntry, action: () => void deleteSelected() },
+        { label: 'Rename', disabled: !selectedEntry || readOnly, action: () => void renameSelected() },
+        { label: 'Delete', disabled: !selectedEntry || readOnly, action: () => void deleteSelected() },
         { separator: true },
         { label: 'Select All', action: () => api.notify('Select All is not available in this view.') },
       ],
@@ -449,6 +539,12 @@ export default function Explorer({ appProps, api }: AppProps) {
         { label: 'Up', disabled: !path.length, action: up },
         { separator: true },
         { label: 'My Computer', action: () => navigate([]) },
+        ...drives.value.map((drive) => ({
+          label: `${drive.label}`,
+          icon: drive.icon,
+          action: () => navigate([`${drive.id}:`]),
+        })),
+        { separator: true },
         { label: 'My Documents', action: () => navigate(['My Documents']) },
       ],
     },
@@ -492,19 +588,19 @@ export default function Explorer({ appProps, api }: AppProps) {
           <img src="/icons/folder.svg" alt="" /> Views
         </button>
         <div class="toolbar-separator" />
-        <button onClick={() => void newFolder()}>
+        <button onClick={() => void newFolder()} disabled={readOnly}>
           <img src="/icons/folder.svg" alt="" /> New Folder
         </button>
-        <button onClick={() => void newTextFile()}>
+        <button onClick={() => void newTextFile()} disabled={readOnly}>
           <img src="/icons/notepad.svg" alt="" /> New Text
         </button>
-        <button onClick={() => uploadInputRef.current?.click()}>
+        <button onClick={() => uploadInputRef.current?.click()} disabled={readOnly}>
           <img src="/icons/folder-open.svg" alt="" /> Upload
         </button>
-        <button onClick={() => void renameSelected()} disabled={!selectedEntry}>
+        <button onClick={() => void renameSelected()} disabled={!selectedEntry || readOnly}>
           <img src="/icons/file-text.svg" alt="" /> Rename
         </button>
-        <button onClick={() => void deleteSelected()} disabled={!selectedEntry}>
+        <button onClick={() => void deleteSelected()} disabled={!selectedEntry || readOnly}>
           <img src="/icons/recycle-empty.svg" alt="" /> Delete
         </button>
         <div class="toolbar-separator" />
@@ -555,14 +651,25 @@ export default function Explorer({ appProps, api }: AppProps) {
               style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px', cursor: 'default' }}
               onClick={() => navigate([])}
             >
-              <img src="/icons/computer-16.svg" alt="" width="16" height="16" /> Desktop
-            </div>
-            <div
-              style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px', cursor: 'default' }}
-              onClick={() => navigate([])}
-            >
               <img src="/icons/computer-16.svg" alt="" width="16" height="16" /> My Computer
             </div>
+            {drives.value.map((drive) => (
+              <div
+                key={drive.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '2px 2px 2px 16px',
+                  cursor: 'default',
+                  background: path[0] === `${drive.id}:` ? 'var(--navy)' : 'transparent',
+                  color: path[0] === `${drive.id}:` ? '#fff' : '#000',
+                }}
+                onClick={() => navigate([`${drive.id}:`])}
+              >
+                <img src={drive.icon} alt="" width="16" height="16" /> {drive.label}
+              </div>
+            ))}
             {folders.map((name) => (
               <div
                 key={name}
@@ -570,12 +677,12 @@ export default function Explorer({ appProps, api }: AppProps) {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '4px',
-                  padding: '2px 2px 2px 16px',
+                  padding: '2px 2px 2px 32px',
                   cursor: 'default',
-                  background: path[0] === name ? 'var(--navy)' : 'transparent',
-                  color: path[0] === name ? '#fff' : '#000',
+                  background: path[0] === 'C:' && path[1] === name ? 'var(--navy)' : 'transparent',
+                  color: path[0] === 'C:' && path[1] === name ? '#fff' : '#000',
                 }}
-                onClick={() => navigate([name])}
+                onClick={() => navigate(['C:', name])}
               >
                 <img src="/icons/folder-16.svg" alt="" width="16" height="16" /> {name}
               </div>
@@ -603,9 +710,9 @@ export default function Explorer({ appProps, api }: AppProps) {
         >
           {dragging ? (
             <div class="wine-drop-overlay">
-              <img src="/icons/wine.svg" alt="" width="48" height="48" />
-              <div class="wine-drop-title">Run with Wine-Assembly</div>
-              <div>Drop a Windows .exe, .zip, .iso or .cue bundle here.</div>
+              <img src={readOnly ? '/icons/folder.svg' : '/icons/wine.svg'} alt="" width="48" height="48" />
+              <div class="wine-drop-title">{readOnly ? 'This drive is read-only' : 'Run with Wine-Assembly'}</div>
+              <div>{readOnly ? 'Copy files to a folder on C: first.' : 'Drop a Windows .exe, .zip, .iso or .cue bundle here.'}</div>
               <div class="wine-drop-note">The file stays in your browser. It is not uploaded.</div>
             </div>
           ) : null}
@@ -642,14 +749,18 @@ export default function Explorer({ appProps, api }: AppProps) {
               <div class="explorer-section-title">Files Stored on This Computer</div>
               <div class="explorer-grid" onContextMenu={backgroundMenu}>
                 {[
-                  { name: '3½ Floppy (A:)', icon: '/icons/dos.svg', action: () => void showDialog({ title: '3½ Floppy (A:)', message: 'There is no disk in the drive. Please insert a disk and try again.', kind: 'error', icon: '/icons/dos.svg' }) },
-                  { name: 'Win98 (C:)', icon: '/icons/computer.svg', action: () => navigate([]) },
-                  { name: 'Compact Disc (D:)', icon: '/icons/cd.svg', action: () => navigate(['Media']) },
-                  { name: 'Control Panel', icon: '/icons/settings.svg', action: () => openApp('control') },
-                  { name: 'Printers', icon: '/icons/settings.svg', action: () => void showDialog({ title: 'Printers', message: 'No printers are installed.', icon: '/icons/settings.svg' }) },
-                  { name: 'Dial-Up Networking', icon: '/icons/dial.svg', action: () => openApp('control') },
+                  ...drives.value.map((drive) => ({
+                    key: drive.id,
+                    name: drive.label,
+                    icon: drive.icon,
+                    action: () => navigate([`${drive.id}:`]),
+                  })),
+                  { key: 'control', name: 'Control Panel', icon: '/icons/settings.svg', action: () => openApp('control') },
+                  { key: 'printers', name: 'Printers', icon: '/icons/settings.svg', action: () => void showDialog({ title: 'Printers', message: 'No printers are installed.', icon: '/icons/settings.svg' }) },
+                  { key: 'dialup', name: 'Dial-Up Networking', icon: '/icons/dial.svg', action: () => openApp('control') },
                 ].map((item) => (
                   <button
+                    key={item.key}
                     class="explorer-item"
                     onDblClick={item.action}
                     onClick={(event) => {
@@ -663,18 +774,6 @@ export default function Explorer({ appProps, api }: AppProps) {
                   </button>
                 ))}
               </div>
-              <div class="explorer-section-title">Folders</div>
-              <FileGrid
-                entries={entries}
-                selected={selected}
-                view={view}
-                onSelect={setSelected}
-                onOpen={openEntry}
-                onEntryMenu={entryMenu}
-                onBackgroundMenu={backgroundMenu}
-                iconFor={iconFor}
-                sizeLabel={sizeLabel}
-              />
             </>
           ) : (
             <FileGrid
@@ -698,7 +797,7 @@ export default function Explorer({ appProps, api }: AppProps) {
           {network ? `${networkItems.length} object(s)` : recycle ? '0 object(s)' : `${entries.length} object(s)`}
         </div>
         <div class="status-bar-field">{selected ?? ''}</div>
-        <div class="status-bar-field">{recycle ? 'Recycle Bin' : `${storageLabel} · ${layerSummary}`}</div>
+        <div class="status-bar-field">{recycle ? 'Recycle Bin' : `${driveInfo?.label ?? 'My Computer'}${readOnly ? ' · read-only' : ''} · ${layerSummary}`}</div>
       </div>
       ) : null}
     </div>

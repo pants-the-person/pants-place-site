@@ -15,7 +15,18 @@ export interface MediaEntry {
 
 const VIRTUAL_ID = 'virtual:media-manifest';
 const RESOLVED_ID = '\0' + VIRTUAL_ID;
-const EXTENSIONS = new Set(['.mid', '.midi', '.ogg', '.oga']);
+const EXTENSIONS = new Set([
+  '.mid',
+  '.midi',
+  '.ogg',
+  '.oga',
+  '.opus',
+  '.mp3',
+  '.wav',
+  '.flac',
+  '.m4a',
+  '.aac',
+]);
 
 export function prettifyName(file: string) {
   return file

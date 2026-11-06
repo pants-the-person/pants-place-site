@@ -5,10 +5,12 @@ import {
   InMemory,
   Journal,
   resolveMountConfig,
+  fs as zenfs,
   type FileSystem,
   type JournalOperation,
 } from '@zenfs/core';
 import { WebAccess } from '@zenfs/dom';
+import { Fat12Image } from '../../worker/fat12';
 
 export type LayerState = 'ready' | 'empty' | 'unavailable';
 
@@ -17,6 +19,7 @@ export interface LayerStatus {
   r2: LayerState;
   static: LayerState;
   access: LayerState;
+  floppy: LayerState;
 }
 
 export const layerStatus = signal<LayerStatus>({
@@ -24,6 +27,7 @@ export const layerStatus = signal<LayerStatus>({
   r2: 'unavailable',
   static: 'unavailable',
   access: 'unavailable',
+  floppy: 'unavailable',
 });
 
 const OPFS_DIR = 'pants-place-c';
@@ -111,18 +115,92 @@ async function emptyFileSystem(label: string): Promise<FileSystem> {
   return await resolveMountConfig({ backend: InMemory, label, maxSize: 16 * 1024 * 1024 });
 }
 
-async function readLayer(layer: FileSystem, path: string): Promise<Uint8Array | null> {
+async function readMounted(path: string): Promise<Uint8Array | null> {
   try {
-    const data = await layer.promises.readFile(path);
+    const data = await zenfs.promises.readFile(path);
     return data instanceof Uint8Array ? data : new Uint8Array(data);
   } catch {
     return null;
   }
 }
 
+interface LayerResult {
+  fs: FileSystem;
+  index: JsonIndex;
+  populate?: () => Promise<void>;
+}
+
+async function fetchLayer(indexUrl: string, baseUrl: string, label: string): Promise<LayerResult | null> {
+  const index = await loadIndex(new URL(indexUrl, location.origin).href);
+  if (!index) return null;
+  try {
+    const fs = await resolveMountConfig({
+      backend: Fetch,
+      baseUrl: new URL(baseUrl, location.origin).href,
+      index,
+      disableAsyncCache: true,
+    });
+    return { fs, index };
+  } catch (error) {
+    console.warn(`${label} VFS layer unavailable:`, error);
+    return null;
+  }
+}
+
+async function floppyFallback(): Promise<LayerResult | null> {
+  try {
+    const response = await fetch('/v86/freedos722.img', { cache: 'no-cache' });
+    if (!response.ok) return null;
+    const image = new Fat12Image(await response.arrayBuffer());
+    const fs = await emptyFileSystem('floppy-fallback');
+    const directories = new Set<string>();
+    for (const path of image.entries.keys()) {
+      let parent = path;
+      while (parent.lastIndexOf('/') > 0) {
+        parent = parent.slice(0, parent.lastIndexOf('/'));
+        directories.add(parent);
+      }
+    }
+    return {
+      fs,
+      index: image.toZenIndex(),
+      populate: async () => {
+        try {
+          for (const directory of [...directories].sort()) {
+            await zenfs.promises.mkdir(`/a${directory}`, { recursive: true }).catch(() => {});
+          }
+          for (const entry of image.entries.values()) {
+            if (entry.kind === 'dir') {
+              await zenfs.promises.mkdir(`/a${entry.path}`, { recursive: true }).catch(() => {});
+              continue;
+            }
+            const data = image.readFile(entry.path);
+            if (data) await zenfs.promises.writeFile(`/a${entry.path}`, data);
+          }
+        } catch (error) {
+          console.warn('A: floppy fallback could not be mounted:', error);
+        }
+      },
+    };
+  } catch (error) {
+    console.warn('A: floppy fallback unavailable:', error);
+    return null;
+  }
+}
+
+function countFiles(index: JsonIndex | null) {
+  const entries = Object.keys(index?.entries || {});
+  return entries.filter((path) => {
+    const entry = index?.entries[path] as { mode?: number } | undefined;
+    return path !== '/' && entry && !((entry.mode || 0) & 0o40000);
+  }).length;
+}
+
 export interface LayerBundle {
   fs: FileSystem;
+  mounts: Record<string, FileSystem>;
   status: LayerStatus;
+  prepare?: () => Promise<void>;
   readFile: (path: string) => Promise<Uint8Array>;
 }
 
@@ -132,6 +210,7 @@ export async function createFileSystemLayers(): Promise<LayerBundle> {
     r2: 'unavailable',
     static: 'unavailable',
     access: 'unavailable',
+    floppy: 'unavailable',
   };
 
   let opfsHandle: FileSystemDirectoryHandle | null = null;
@@ -152,74 +231,61 @@ export async function createFileSystemLayers(): Promise<LayerBundle> {
     ? await resolveMountConfig({ backend: WebAccess, handle: opfsHandle, disableHandleCache: false })
     : await emptyFileSystem('session-fallback');
 
-  const staticIndex = await loadIndex(new URL(`/vfs-static.index.json?v=${Date.now()}`, location.origin).href);
-  const staticLayer = staticIndex
-    ? await resolveMountConfig({
-        backend: Fetch,
-        baseUrl: new URL('/vfs-static', location.origin).href,
-        index: staticIndex,
-        disableAsyncCache: true,
-      }).catch((error) => { console.warn('Static VFS layer unavailable:', error); return null; })
-    : null;
-
-  const r2Index = await loadIndex(new URL(`/api/vfs/r2/index.json?v=${Date.now()}`, location.origin).href);
-  const r2Layer = r2Index
-    ? await resolveMountConfig({
-        backend: Fetch,
-        baseUrl: new URL('/api/vfs/r2', location.origin).href,
-        index: r2Index,
-        disableAsyncCache: true,
-      }).catch((error) => { console.warn('R2 VFS layer unavailable:', error); return null; })
-    : null;
-
-  if (staticLayer) status.static = 'ready';
-  if (r2Layer) {
-    const entries = Object.keys(r2Index?.entries || {});
-    const files = entries.filter((path) => {
-      const entry = r2Index?.entries[path] as { mode?: number } | undefined;
-      return path !== '/' && entry && !((entry.mode || 0) & 0o40000);
-    });
-    status.r2 = files.length ? 'ready' : 'empty';
+  // C: is the writable Windows mock tree. Prefer the worker-backed mirror and
+  // fall back to the site's static layer when the worker is not running.
+  let staticLayer = await fetchLayer('/api/vfs/c/index.json', '/api/vfs/c', 'C: worker');
+  if (!staticLayer) {
+    staticLayer = await fetchLayer('/vfs-static.index.json', '/vfs-static', 'C: static');
   }
 
-  const staticBase = staticLayer || (await emptyFileSystem('static-unavailable'));
-  const r2Base = r2Layer || (await emptyFileSystem('r2-unavailable'));
+  // D: is the read-only R2 binding exposed by the VFS worker.
+  const r2Layer = await fetchLayer('/api/vfs/d/index.json', '/api/vfs/d', 'D: R2');
+
+  // A: is the read-only FreeDOS floppy image exposed by the VFS worker.
+  let floppyLayer: LayerResult | null = await fetchLayer('/api/vfs/a/index.json', '/api/vfs/a', 'A: floppy');
+  if (!floppyLayer) floppyLayer = await floppyFallback();
+
+  if (staticLayer) status.static = 'ready';
+  if (r2Layer) status.r2 = countFiles(r2Layer.index) ? 'ready' : 'empty';
+  if (floppyLayer) status.floppy = countFiles(floppyLayer.index) ? 'ready' : 'empty';
+
+  const staticBase = staticLayer?.fs ?? (await emptyFileSystem('static-unavailable'));
+  const r2Base = r2Layer?.fs ?? (await emptyFileSystem('r2-unavailable'));
+  const floppyBase = floppyLayer?.fs ?? (await emptyFileSystem('floppy-unavailable'));
 
   const staticJournal = new PersistedJournal(
     journalSaver(stateDir, 'static-journal.txt'),
     await readHandleText(stateDir, 'static-journal.txt'),
   );
-  const r2Journal = new PersistedJournal(
-    journalSaver(stateDir, 'r2-journal.txt'),
-    await readHandleText(stateDir, 'r2-journal.txt'),
-  );
 
-  const r2OverOpfs = await resolveMountConfig({
-    backend: CopyOnWrite,
-    readable: r2Base,
-    writable: opfs,
-    journal: r2Journal,
-  });
-
-  const merged = await resolveMountConfig({
+  const mergedC = await resolveMountConfig({
     backend: CopyOnWrite,
     readable: staticBase,
-    writable: r2OverOpfs,
+    writable: opfs,
     journal: staticJournal,
   });
 
   layerStatus.value = status;
 
+  const mounts = {
+    '/a': floppyBase,
+    '/c': mergedC,
+    '/d': r2Base,
+  };
+
   async function readFile(path: string): Promise<Uint8Array> {
-    // Read through the individual layers rather than the CoW mount. Some
-    // ZenFS open/read paths copy a lower-layer file up, which would silently
-    // fill OPFS just from opening a Wine app.
-    for (const layer of [opfs, r2Base, staticBase]) {
-      const data = await readLayer(layer, path);
-      if (data) return data;
-    }
-    throw new Error(`File not found in any VFS layer: ${path}`);
+    // Read through the mounted VFS after configure(). This avoids touching the
+    // backend mount objects directly, which do not expose the fs promises API.
+    const data = await readMounted(path);
+    if (data) return data;
+    throw new Error(`File not found in the VFS drive: ${path}`);
   }
 
-  return { fs: merged, status, readFile };
+  return {
+    fs: mergedC,
+    mounts,
+    status,
+    prepare: floppyLayer?.populate,
+    readFile,
+  };
 }

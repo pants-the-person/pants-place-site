@@ -16,6 +16,10 @@
       "bucket_name": "pants-place-vfs"
     }
   ],
+  "vars": {
+    "VFS_SITE_ORIGIN": "https://pants.place",
+    "VFS_FLOPPY_URL": "https://pants.place/v86/freedos722.img"
+  },
   "observability": {
     "enabled": true
   }

@@ -66,9 +66,9 @@ export default function Help({ api }: AppProps) {
           {topic === 'winamp' ? (
             <>
               <h2>Winamp &amp; media</h2>
-              <p>Winamp builds its playlist from <code>public/media</code>. Drop in <code>.mid</code>, <code>.midi</code>, <code>.ogg</code> or <code>.oga</code> files and restart the dev server.</p>
-              <p>MIDI files are synthesized with the TimGM6mb General MIDI SoundFont through spessasynth. OGG files use the Web Audio API. Both share the 10-band EQ and spectrum analyser.</p>
-              <button onClick={() => openWineApp('winamp')}>Open Winamp</button>
+              <p>Winamp builds its initial playlist from <code>public/media</code>, but you can add any local audio file with the playlist’s <strong>ADD</strong> button or by dropping files onto the playlist window.</p>
+              <p>MIDI files are synthesized with the TimGM6mb General MIDI SoundFont through spessasynth. OGG, Opus, MP3, WAV, FLAC and M4A files use the Web Audio API. Both share the 10-band EQ and spectrum analyser.</p>
+              <button onClick={() => openApp('winamp')}>Open Winamp</button>
             </>
           ) : null}
           {topic === 'ie' ? (

@@ -77,13 +77,13 @@ await page.locator('.win98-window', { hasText: 'Internet Explorer' }).locator('[
 
 // Winamp MIDI
 await page.locator('.desktop-icon', { hasText: 'Winamp' }).dblclick();
-await page.waitForSelector('.winamp');
+await page.waitForSelector('.wa-main');
 await page.getByTitle('Playlist').click();
-await page.waitForSelector('.winamp-playlist');
-await page.locator('.playlist-row').nth(2).dblclick();
+await page.waitForSelector('.wa-playlist');
+await page.locator('.wa-pl-row').nth(2).dblclick();
 await page.waitForTimeout(3500);
-console.log('MIDI TITLE:', (await page.locator('.lcd-title').textContent()).trim());
-console.log('MIDI TIME:', await page.locator('.lcd-time').textContent());
+console.log('WINAMP TITLE:', (await page.locator('.wa-track-title').textContent()).trim());
+console.log('WINAMP TIME:', await page.locator('.wa-pl-time').textContent());
 await page.screenshot({ path: `${out}/winamp-midi2.png` });
 
 // Settings

@@ -11,7 +11,7 @@ const mediaDir = path.join(root, 'public/media');
 const outDir = path.join(root, 'public/vfs-static');
 const indexFile = path.join(root, 'public/vfs-static.index.json');
 const metaFile = path.join(root, 'public/vfs-static.meta.json');
-const MEDIA_EXTENSIONS = new Set(['.mid', '.midi', '.ogg', '.oga']);
+const MEDIA_EXTENSIONS = new Set(['.mid', '.midi', '.ogg', '.oga', '.opus', '.mp3', '.wav', '.flac', '.m4a', '.aac']);
 
 function readDocuments() {
   if (!fs.existsSync(docsDir)) return [];

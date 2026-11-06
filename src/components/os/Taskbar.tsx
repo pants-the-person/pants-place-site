@@ -70,7 +70,7 @@ export default function Taskbar({ onStart }: { onStart: () => void }) {
         <button title="Launch Internet Explorer" onClick={() => openApp('ie')}>
           <img src="/icons/ie-16.svg" alt="" width="16" height="16" />
         </button>
-        <button title="Launch Winamp" onClick={() => openApp('wine-winamp')}>
+        <button title="Launch Winamp" onClick={() => openApp('winamp')}>
           <img src="/icons/winamp-16.svg" alt="" width="16" height="16" />
         </button>
         <button title="Show Desktop" onClick={showDesktop}>

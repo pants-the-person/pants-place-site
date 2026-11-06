@@ -107,7 +107,6 @@ export default function StartMenu({ documents }: { documents: DesktopDocument[] 
       calculator: 'calc',
       mspaint: 'mspaint98',
       paint: 'mspaint98',
-      winamp: 'winamp',
       wordpad: 'wordpad',
       winmine: 'winmine_wep',
       minesweeper: 'winmine_wep',
@@ -117,6 +116,11 @@ export default function StartMenu({ documents }: { documents: DesktopDocument[] 
     if (wineMap[command]) {
       close();
       openWineApp(wineMap[command]);
+      return;
+    }
+    if (command === 'winamp') {
+      close();
+      openApp('winamp');
       return;
     }
     const map: Record<string, [string, Record<string, unknown>?]> = {
@@ -250,9 +254,15 @@ export default function StartMenu({ documents }: { documents: DesktopDocument[] 
                   {nested === 'accessories' ? (
                     <div class="start-submenu">
                       <div class="start-separator" />
-                      {wineAppsByCategory.accessories.map((app) => (
-                        <WineStartItem key={app.id} app={app} launch={launchWine} />
-                      ))}
+                      <button class="start-item" onClick={() => launch('winamp')}>
+                        <img src="/icons/winamp.svg" alt="" width="18" height="18" />
+                        <span class="label">Winamp</span>
+                      </button>
+                      {wineAppsByCategory.accessories
+                        .filter((app) => app.id !== 'winamp' && app.id !== 'winamp_mod')
+                        .map((app) => (
+                          <WineStartItem key={app.id} app={app} launch={launchWine} />
+                        ))}
                     </div>
                   ) : null}
                 </div>

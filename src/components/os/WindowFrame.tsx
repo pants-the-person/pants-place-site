@@ -71,7 +71,7 @@ export default function WindowFrame({ window: win, active, children }: Props) {
 
   function beginDrag(event: PointerEvent, edge?: string) {
     if (event.button !== 0) return;
-    if ((event.target as HTMLElement).closest('.title-bar-controls')) return;
+    if ((event.target as HTMLElement).closest('.title-bar-controls, .wa-title-button, button, input')) return;
     if (win.mode === 'max' && !edge) return;
     event.preventDefault();
     event.stopPropagation();
@@ -114,39 +114,48 @@ export default function WindowFrame({ window: win, active, children }: Props) {
 
   return (
     <div
-      class={`win98-window ${active ? 'active' : 'inactive'} ${win.mode === 'max' ? 'maximized' : ''} ${win.mode === 'min' ? 'minimized' : ''} ${dragging ? 'dragging' : ''}`}
+      class={`win98-window ${active ? 'active' : 'inactive'} ${win.mode === 'max' ? 'maximized' : ''} ${win.mode === 'min' ? 'minimized' : ''} ${dragging ? 'dragging' : ''} ${win.chrome === 'none' ? 'chromeless' : ''}`}
       style={style}
       onPointerDown={() => focusWindow(win.id)}
       role="dialog"
       aria-label={win.title}
     >
+      {win.chrome !== 'none' ? (
+        <div
+          class="title-bar"
+          onPointerDown={(e) => beginDrag(e)}
+          onDblClick={max}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            openContextMenu(event, [
+              { label: win.mode === 'max' ? 'Restore' : 'Maximize', action: max },
+              { label: 'Minimize', action: minimize },
+              { separator: true },
+              { label: 'Close', action: close },
+            ]);
+          }}
+        >
+          <img class="title-bar-icon" src={win.icon} alt="" width="16" height="16" />
+          <span class="title-bar-text">{win.title}</span>
+          <span class="title-bar-controls">
+            <button data-action="minimize" aria-label="Minimize" onClick={minimize} />
+            <button
+              data-action={win.mode === 'max' ? 'restore' : 'maximize'}
+              aria-label={win.mode === 'max' ? 'Restore' : 'Maximize'}
+              onClick={max}
+            />
+            <button data-action="close" aria-label="Close" onClick={close} />
+          </span>
+        </div>
+      ) : null}
       <div
-        class="title-bar"
-        onPointerDown={(e) => beginDrag(e)}
-        onDblClick={max}
-        onContextMenu={(event) => {
-          event.preventDefault();
-          openContextMenu(event, [
-            { label: win.mode === 'max' ? 'Restore' : 'Maximize', action: max },
-            { label: 'Minimize', action: minimize },
-            { separator: true },
-            { label: 'Close', action: close },
-          ]);
+        class="window-body"
+        onPointerDown={(event) => {
+          if ((event.target as HTMLElement).closest('[data-drag-handle]')) beginDrag(event);
         }}
       >
-        <img class="title-bar-icon" src={win.icon} alt="" width="16" height="16" />
-        <span class="title-bar-text">{win.title}</span>
-        <span class="title-bar-controls">
-          <button data-action="minimize" aria-label="Minimize" onClick={minimize} />
-          <button
-            data-action={win.mode === 'max' ? 'restore' : 'maximize'}
-            aria-label={win.mode === 'max' ? 'Restore' : 'Maximize'}
-            onClick={max}
-          />
-          <button data-action="close" aria-label="Close" onClick={close} />
-        </span>
+        {children}
       </div>
-      <div class="window-body">{children}</div>
       {win.resizable && win.mode !== 'max' ? (
         <>
           <div class="resize-handle resize-n" onPointerDown={(e) => beginDrag(e, 'n')} />

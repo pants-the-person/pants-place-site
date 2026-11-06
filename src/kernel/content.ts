@@ -9,6 +9,7 @@ export {
   fileSystem,
   fileSystemReady,
   fileSystemError,
+  drives,
   initFileSystem,
   refreshFileSystem,
   createFolder,
@@ -23,3 +24,4 @@ export {
   storageEstimate,
 } from './fs-store';
 export { layerStatus, type LayerState, type LayerStatus } from './fs-layers';
+export type { DriveInfo, DriveId } from './fs-store';

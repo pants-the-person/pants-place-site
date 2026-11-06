@@ -9,7 +9,6 @@ export const wineEquivalents: Record<string, string> = {
   paint: 'mspaint98',
   calculator: 'calc',
   minesweeper: 'winmine_wep',
-  winamp: 'winamp',
   wordpad: 'wordpad',
 };
 

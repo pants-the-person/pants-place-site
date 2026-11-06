@@ -10,6 +10,7 @@ import {
 import { syncRuntime } from './sync-runtime.mjs';
 import { syncAssets } from './sync-assets.mjs';
 import { withEmbedMenuExports } from './patch-menu-wat.mjs';
+import { extractWinampSkin } from './extract-winamp-skin.mjs';
 
 function run(command, args, options = {}) {
   execFileSync(command, args, { stdio: 'inherit', ...options });
@@ -50,6 +51,7 @@ export async function prepareWine() {
   buildWasm();
   const runtime = syncRuntime();
   await syncAssets();
+  extractWinampSkin();
   run(process.execPath, [path.join(projectRoot, 'scripts/wine/gen-registry.mjs')], {
     cwd: projectRoot,
   });

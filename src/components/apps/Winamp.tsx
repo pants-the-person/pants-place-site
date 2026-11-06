@@ -1,7 +1,7 @@
-import { useEffect } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import {
-  currentTrack,
   currentIndex,
+  currentTrack,
   duration,
   engineError,
   formatTime,
@@ -17,21 +17,25 @@ import {
   setVolume,
   shuffle,
   spectrum,
+  stop,
   togglePlay,
-  tracks,
   visualizer,
   volume,
-  stop,
   paused,
+  playTrackById,
 } from '../../kernel/player';
-import { openApp, windows, closeWindow } from '../../kernel/windows';
+import { openApp, windows, closeWindow, minimizeWindow, restoreWindow, updateWindowBounds } from '../../kernel/windows';
 import { showDialog } from '../../kernel/dialogs';
 import { playSound } from '../../kernel/audio';
 import type { AppProps } from '../../kernel/types';
+import WinampDigits from './WinampDigits';
+
+type DisplayMode = 'spectrum' | 'time';
 
 export default function Winamp({ appProps, api, windowId }: AppProps) {
   const track = currentTrack.value;
-  const title = track ? `${currentIndex.value + 1}. ${track.title}` : 'Pants Place Winamp';
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('spectrum');
+  const [balance, setBalance] = useState(0);
 
   function openPanel(appId: 'winamp-playlist' | 'winamp-eq') {
     const host = windows.value.find((w) => w.id === windowId);
@@ -39,12 +43,27 @@ export default function Winamp({ appProps, api, windowId }: AppProps) {
       openApp(appId);
       return;
     }
-    const desired =
-      appId === 'winamp-eq'
-        ? { x: Math.min(host.x + host.w + 6, window.innerWidth - 340), y: host.y }
-        : { x: host.x, y: Math.min(host.y + host.h + 4, window.innerHeight - 290) };
-    openApp(appId, {}, desired);
+    const eq = windows.value.find((w) => w.appId === 'winamp-eq');
+    const playlist = windows.value.find((w) => w.appId === 'winamp-playlist');
+    const existing = appId === 'winamp-eq' ? eq : playlist;
+    if (existing) {
+      if (existing.mode === 'min') restoreWindow(existing.id);
+      return;
+    }
+    const belowMain = host.y + host.h;
+    if (appId === 'winamp-eq') {
+      openApp(appId, {}, { x: host.x, y: Math.min(belowMain, window.innerHeight - 130) });
+      if (playlist) updateWindowBounds(playlist.id, { y: Math.min(belowMain + 116, window.innerHeight - 240) });
+      return;
+    }
+    const y = eq ? eq.y + eq.h : belowMain;
+    openApp(appId, {}, { x: host.x, y: Math.min(y, window.innerHeight - 240) });
   }
+
+  useEffect(() => {
+    api.setTitle('Winamp');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -57,17 +76,14 @@ export default function Winamp({ appProps, api, windowId }: AppProps) {
 
   useEffect(() => {
     const mediaId = appProps.mediaId as string | undefined;
-    if (mediaId) {
-      const index = tracks.value.findIndex((t) => t.id === mediaId);
-      if (index >= 0) void playIndex(index);
-    }
+    if (mediaId) playTrackById(mediaId);
   }, []);
 
   useEffect(() => {
     if (engineError.value) {
       void showDialog({
         title: 'Winamp',
-        message: 'The MIDI engine could not start.',
+        message: 'The audio engine could not start.',
         detail: engineError.value,
         kind: 'error',
         icon: '/icons/winamp.svg',
@@ -84,9 +100,13 @@ export default function Winamp({ appProps, api, windowId }: AppProps) {
     togglePlay();
   }
 
+  const title = track ? `${currentIndex.value + 1}. ${track.title}` : 'Pants Place Winamp';
+  const titleTime = track ? `<${formatTime(position.value)}/${formatTime(duration.value)}>` : '';
+  const isMidi = track?.kind === 'midi';
+
   return (
     <div
-      class="winamp"
+      class="wa wa-main"
       tabIndex={0}
       onKeyDown={(event) => {
         const key = event.key.toLowerCase();
@@ -103,33 +123,76 @@ export default function Winamp({ appProps, api, windowId }: AppProps) {
         if (key === 'arrowdown') setVolume(volume.value - 0.05);
       }}
     >
-      <div class="winamp-top">
-        <span class="winamp-brand">WINAMP</span>
-        <span class="winamp-mode">2.8</span>
-        <span class="winamp-mini">{midiLoading.value ? 'MIDI...' : playing.value ? 'PLAY' : paused.value ? 'PAUSE' : 'STOP'}</span>
+      <div class="wa-titlebar" data-drag-handle>
+        <button
+          class="wa-title-button"
+          style={{ left: '243px' }}
+          title="Minimize"
+          onClick={() => minimizeWindow(windowId)}
+        />
+        <button
+          class="wa-title-button"
+          style={{ left: '263px' }}
+          title="Close"
+          onClick={() => api.close()}
+        />
       </div>
 
-      <div class="winamp-display">
-        <div class="winamp-lcd">
-          <div class="lcd-time">{formatTime(position.value)}</div>
-          <div class="lcd-info">
-            <span>{track ? (track.kind === 'midi' ? 'MIDI' : 'OGG') : '---'}</span>
-            <span>{track ? '128 kbps' : '-- kbps'}</span>
-            <span>44 kHz</span>
-          </div>
-          <div class="lcd-title">
-            <span>{title}</span>
-          </div>
-          <div class="lcd-spectrum" aria-hidden="true">
+      <button
+        class="wa-display"
+        title={displayMode === 'spectrum' ? 'Switch to time display' : 'Switch to spectrum'}
+        onClick={() => setDisplayMode((mode) => (mode === 'spectrum' ? 'time' : 'spectrum'))}
+      >
+        {displayMode === 'time' ? (
+          <span class="wa-time-big">
+            <WinampDigits value={formatTime(position.value)} />
+          </span>
+        ) : (
+          <span class="wa-spectrum" aria-hidden="true">
             {spectrum.value.map((value, index) => (
               <i key={index} style={{ height: `${Math.max(2, value)}%` }} />
             ))}
-          </div>
-          <div class="lcd-mode">{visualizer.value.toUpperCase()}</div>
-        </div>
+          </span>
+        )}
+        <span class={`wa-play-indicator ${playing.value ? 'playing' : paused.value ? 'paused' : 'stopped'}`} />
+      </button>
+
+      <div class="wa-titleline">
+        <span class="wa-track-title">{title}</span>
+        <span class="wa-track-time">{titleTime}</span>
       </div>
 
-      <div class="winamp-scrub">
+      <div class="wa-meta">
+        <span class="wa-meta-box wa-kbps">{track ? (isMidi ? '128' : '128') : '--'}</span>
+        <span class="wa-meta-box wa-khz">{track ? '44' : '--'}</span>
+      </div>
+
+      <div class="wa-slider-row">
+        <input
+          class="wa-slider wa-volume"
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value={volume.value}
+          onInput={(event) => setVolume(Number((event.target as HTMLInputElement).value))}
+          aria-label="Volume"
+        />
+        <input
+          class="wa-slider wa-balance"
+          type="range"
+          min="-1"
+          max="1"
+          step="0.01"
+          value={balance}
+          onInput={(event) => setBalance(Number((event.target as HTMLInputElement).value))}
+          aria-label="Balance"
+        />
+      </div>
+      <button class={`wa-toggle wa-eq-toggle ${windows.value.some((w) => w.appId === 'winamp-eq') ? 'on' : ''}`} onClick={() => openPanel('winamp-eq')} title="Equalizer" />
+      <button class={`wa-toggle wa-pl-toggle ${windows.value.some((w) => w.appId === 'winamp-playlist') ? 'on' : ''}`} onClick={() => openPanel('winamp-playlist')} title="Playlist" />
+
+      <div class="wa-seek">
         <input
           type="range"
           min="0"
@@ -139,58 +202,21 @@ export default function Winamp({ appProps, api, windowId }: AppProps) {
           onInput={(event) => seek(Number((event.target as HTMLInputElement).value))}
           aria-label="Seek"
         />
-        <span>{formatTime(duration.value)}</span>
       </div>
 
-      <div class="winamp-controls">
-        <div class="winamp-transport">
-          <button onClick={prev} title="Previous">|◄</button>
-          <button onClick={playPause} title="Play / Pause">{playing.value ? '❚❚' : '►'}</button>
-          <button onClick={stop} title="Stop">■</button>
-          <button onClick={() => next()} title="Next">►|</button>
-          <button onClick={() => openApp('computer', { path: ['Media'] })} title="Eject">⏏</button>
-        </div>
-        <div class="winamp-volume">
-          <span>VOL</span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={volume.value}
-            onInput={(event) => setVolume(Number((event.target as HTMLInputElement).value))}
-            aria-label="Volume"
-          />
-        </div>
+      <div class="wa-transport">
+        <button class="wa-cbutton wa-prev" onClick={prev} title="Previous" />
+        <button class="wa-cbutton wa-play" onClick={playPause} title={playing.value ? 'Pause' : 'Play'} />
+        <button class="wa-cbutton wa-pause" onClick={pause} title="Pause" />
+        <button class="wa-cbutton wa-stop" onClick={stop} title="Stop" />
+        <button class="wa-cbutton wa-next" onClick={() => next()} title="Next" />
+        <button class="wa-cbutton wa-eject" onClick={() => openApp('computer', { path: ['Media'] })} title="Eject" />
       </div>
 
-      <div class="winamp-toggles">
-        <button class={shuffle.value ? 'on' : ''} onClick={() => (shuffle.value = !shuffle.value)} title="Shuffle">
-          SHUF
-        </button>
-        <button class={repeat.value ? 'on' : ''} onClick={() => (repeat.value = !repeat.value)} title="Repeat">
-          REP
-        </button>
-        <button onClick={() => openPanel('winamp-eq')} title="Equalizer">
-          EQ
-        </button>
-        <button onClick={() => openPanel('winamp-playlist')} title="Playlist">
-          PL
-        </button>
-        <button
-          onClick={() => {
-            const modes = ['spectrum', 'oscilloscope', 'off'] as const;
-            const index = modes.indexOf(visualizer.value);
-            visualizer.value = modes[(index + 1) % modes.length];
-          }}
-          title="Visualizer"
-        >
-          VIS
-        </button>
-        <button onClick={() => openApp('help')} title="About Winamp">
-          ?
-        </button>
-      </div>
+      <button class={`wa-shuffle ${shuffle.value ? 'on' : ''}`} onClick={() => (shuffle.value = !shuffle.value)} title="Shuffle" />
+      <button class={`wa-repeat ${repeat.value ? 'on' : ''}`} onClick={() => (repeat.value = !repeat.value)} title="Repeat" />
+
+      <span class="wa-build">{midiLoading.value ? 'MIDI' : visualizer.value === 'off' ? 'VIS OFF' : '2.91'}</span>
     </div>
   );
 }

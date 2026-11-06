@@ -4,13 +4,13 @@ A functional Windows 98-style desktop that runs entirely in the browser.
 
 - **Astro 7 + Preact** shell with a real window manager, taskbar, Start menu, desktop icons, dialogs and persistent settings.
 - **MS-DOS Prompt** running a real **FreeDOS 7.10** virtual machine in **v86 / WebAssembly**. Type `VER`, `DIR`, `MEM`, `INVADERS`, `SNAKE` or `TETRIS`.
-- **Winamp 2.8** clone with playlist, 10-band EQ and spectrum analyser. Plays **MIDI** through a General MIDI SoundFont and **OGG** through the Web Audio API.
+- **Winamp 2.91** with the original base-skin sprites, playlist, 10-band EQ and spectrum analyser. Plays **MIDI** through a General MIDI SoundFont and **OGG/Opus/MP3/WAV** through the Web Audio API.
 - **Internet Explorer 5** clone browsing a fake 1998 internet at `/web/` with news, a devlog, guestbook, webring, downloads and an AltaVista-style search. It can also browse archived real websites through **The Old Net**, with a year selector, URL tracking and Copy Link.
 - **The Old Net Webring** with 223 scraped retro sites and a filter/random button.
 - **Six personal sites** under `/member/` and `/char/`, each maintained in its own Astro git submodule. Visiting a site path boots the desktop and opens IE directly at that page.
 - **Explorer, Notepad, Paint, Minesweeper, Calculator, Display Properties and Help**.
 - **Wine-Assembly** running 41 real Windows 98 programs and games from mirrored `.exe` files in a WebAssembly x86 emulator. Open them from **Start → Programs → Accessories**, **Games**, or **System Tools**.
-- **Persistent `C:\` drive** shared by Explorer, Notepad, Paint and every Wine program. ZenFS uses OPFS for writes with read-only R2 and static fallback layers.
+- **Three VFS drives**: writable `C:` with the full Windows 98 mock tree, read-only `D:` backed by the R2 bucket, and read-only `A:` backed by the FreeDOS boot floppy. Explorer, Notepad and Wine share `C:`.
 - **Explorer drag-and-drop / Open with Wine** for `.exe`, `.zip`, `.iso` and `.cue` media. Dropped files stay in the browser.
 - Boot sequence, shutdown screen, BSOD easter egg, CRT filter, colour schemes (including Hot Dog Stand), wallpapers and system sounds.
 
@@ -38,16 +38,21 @@ The shell is app-agnostic. To add a program:
 
 Windows, taskbar buttons, focus, dragging and resizing are handled by the shell. Apps only render their body and call `api.close()`, `api.setTitle()`, `api.openApp()` or `api.dialog()`.
 
-## Shared C: filesystem
+## VFS drives
 
-`C:\` is a real browser-persisted filesystem, not a mock tree. Explorer, Notepad, Paint and Wine-Assembly all read and write the same files.
+Explorer exposes three drives, all resolved through the `worker/vfs.ts` API:
 
-- Implementation: `src/kernel/fs-layers.ts` mounts a layered ZenFS filesystem at `/c`:
-  - **OPFS** (`@zenfs/dom` `WebAccess`) is the writable layer.
-  - **R2** (`worker/vfs.ts`) is a read-only layer served through `/api/vfs/r2/`.
-  - **Static hosted data** (`public/vfs-static`) is the read-only base layer.
-  - ZenFS `CopyOnWrite` overlays guarantee writes only ever land in OPFS. Edits to lower-layer files are copied up; deletes are persisted as journals in `pants-place-state`.
-- Paths are mapped between `C:\...` and ZenFS `/c/...` with a case-insensitive resolver, matching Windows behaviour.
+- **A:** is a read-only FAT12 view of the same `public/v86/freedos722.img` floppy that the FreeDOS/v86 VM boots from.
+- **C:** is a writable Windows 98 mock tree. Explorer, Notepad, Paint and Wine-Assembly all read and write it.
+- **D:** is the read-only R2 bucket binding (`VFS_BUCKET`).
+
+- Implementation: `src/kernel/fs-layers.ts` mounts ZenFS layers at `/a`, `/c` and `/d`:
+  - **OPFS** (`@zenfs/dom` `WebAccess`) is the writable C: layer.
+  - **Worker-backed C: mock tree** (`/api/vfs/c/`) is the read-only base, with a direct `/vfs-static` fallback for local development.
+  - **D:** is a read-only Fetch layer over `/api/vfs/d/` (the R2 binding).
+  - **A:** is a read-only Fetch layer over `/api/vfs/a/`, with a browser-side FAT12 fallback for local development.
+  - ZenFS `CopyOnWrite` overlays guarantee C: writes only ever land in OPFS. Edits to lower-layer files are copied up; deletes are persisted as journals in `pants-place-state`.
+- Paths are mapped between `A:\`, `C:\`, `D:\` and ZenFS with a case-insensitive resolver, matching Windows behaviour. A: and D: are read-only in Explorer.
 - `scripts/vfs/build-static-layer.mjs` generates the base `C:` tree from `src/content/documents`, `public/media`, shortcuts and system files. A marker in `C:\.pants\` stops the seed fallback from running twice.
 - Metadata that is not part of a real file (Explorer `openWith`, icons, media ids, shortcut props) lives in `C:\.pants\meta.json`, merged with the generated static metadata manifest.
 - Existing Notepad notes in `localStorage` (`pp98:note:*`) are migrated into `C:\My Documents` once.
@@ -56,10 +61,11 @@ Windows, taskbar buttons, focus, dragging and resizing are handled by the shell.
 
 ZenFS is LGPL-3.0-or-later; attribution and license links are in `THIRD_PARTY_NOTICES.md`. The build sets `keepNames` in `astro.config.ts` because ZenFS/memium registers struct types by class name at runtime.
 
-### R2 and static layers
+### Worker routes
 
 - `public/vfs-static/` is generated at build time from the current desktop seed.
-- `worker/vfs.ts` serves the read-only R2 layer through `/api/vfs/r2/`. The binding is `VFS_BUCKET` in `wrangler.vfs.jsonc`; object keys map directly to `C:\` paths.
+- `worker/vfs.ts` exposes `/api/vfs/drives.json`, `/api/vfs/{a,c,d}/index.json` and `/api/vfs/{a,c,d}/<path>`. `/api/vfs/r2/*` remains as an alias for D:.
+- The R2 binding is `VFS_BUCKET` in `wrangler.vfs.jsonc`; object keys map directly to D:\ paths. `VFS_SITE_ORIGIN` and `VFS_FLOPPY_URL` point the worker at the static C: mirror and the FreeDOS floppy image.
 - Deploy it with:
 
 ```bash
@@ -67,8 +73,8 @@ npm run deploy:vfs
 ```
 
 - `npm run deploy:all` deploys the site, the VFS Worker and the Old Net API Worker.
-- Deleting a static or R2 file writes a persisted whiteout journal in OPFS rather than modifying the read-only layer.
-- A future Cloudflare Access layer can be inserted between OPFS and the base R2 layer by adding another `CopyOnWrite` mount and an access-scoped R2 binding.
+- Deleting a C: static file writes a persisted whiteout journal in OPFS rather than modifying the read-only layer.
+- A future Cloudflare Access layer can be inserted between OPFS and the C: base layer by adding another `CopyOnWrite` mount and an access-scoped binding.
 
 
 ### MS-DOS C: drive
@@ -83,11 +89,13 @@ The FreeDOS terminal also gets a real `C:` drive built from the shared filesyste
 
 ## Duplicate Windows programs
 
-Native HTML5 duplicates are no longer exposed in the Start menu or on the desktop. The visible Notepad, Paint, Calculator, Minesweeper, WordPad and Winamp entries are the Wine versions. The original HTML5 Winamp is kept as a hidden media engine so the site's MIDI/OGG playlist, EQ and spectrum analyser continue to work.
+Native HTML5 duplicates are no longer exposed in the Start menu or on the desktop. The visible Notepad, Paint, Calculator, Minesweeper and WordPad entries are the Wine versions. **Winamp is native**: it uses the real Winamp 2.91 base-skin sprites and is the only Winamp launch target.
 
 ## Media
 
-Drop `.mid`, `.midi`, `.ogg` or `.oga` files into `public/media/`. The Winamp playlist is generated from that folder at build time and watched while the dev server is running. Subfolders are supported.
+Winamp starts with the tracks in `public/media/` and accepts additional files through the playlist **ADD** button or drag-and-drop. Drop `.mid`, `.midi`, `.ogg`, `.oga`, `.opus`, `.mp3`, `.wav`, `.flac`, `.m4a` or `.aac` files into `public/media/` to include them in the build-time queue. Subfolders are supported.
+
+`npm run wine:skin` extracts the base-skin sprites from the bundled `winamp.exe` into `public/wine/skin/`; `npm run smoke:winamp` runs the Playwright UI and drive checks.
 
 The repo ships with three original demo MIDI files and one CC-licensed chiptune OGG. See `public/media/README.md` and `CREDITS.md`.
 

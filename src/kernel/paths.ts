@@ -16,13 +16,16 @@ export function normalizeWindowsPath(input: string): string {
 
 export function splitWindowsPath(input: string): string[] {
   const clean = normalizeWindowsPath(input);
-  if (clean === 'c:\\') return [];
-  return clean.slice(3).split('\\').filter(Boolean);
+  const drive = clean.slice(0, 2).toUpperCase();
+  const parts = clean.slice(3).split('\\').filter(Boolean);
+  return [drive, ...parts];
 }
 
 export function joinWindowsPath(parts: string[], drive = 'C'): string {
   const clean = parts.map((part) => String(part).replace(/^\\+|\\+$/g, '')).filter(Boolean);
-  return clean.length ? `${drive}:\\${clean.join('\\')}` : `${drive}:\\`;
+  const explicit = clean[0] && /^[a-z]:$/i.test(clean[0]) ? clean.shift()!.toUpperCase() : null;
+  const letter = (explicit ?? `${drive.toUpperCase()}:`).slice(0, 2);
+  return clean.length ? `${letter}\\${clean.join('\\')}` : `${letter}\\`;
 }
 
 export function basenameWindowsPath(input: string): string {

@@ -54,7 +54,7 @@ Pants Place exposes 41 programs from Wine-Assembly's desktop registry. The follo
 - **Rodent's Revenge, JezzBall and the Win16 WEP games** — Microsoft Entertainment Pack / Windows Entertainment Pack 16-bit builds, as documented upstream.
 - **DX-Ball** — Michael P. Welch / freeware distribution.
 - **Blobby Volley** — freeware, see `packages/freeware/blobby-volley/Instructions.txt`.
-- **Winamp 2.91** — Nullsoft; upstream ships the freely redistributable player build.
+- **Winamp 2.91** — Nullsoft; upstream ships the freely redistributable player build. The native Pants Place Winamp UI uses the classic base-skin sprites extracted from that already-mirrored `winamp.exe` at build time.
 - **RollerCoaster Tycoon shareware** — Chris Sawyer / Hasbro Interactive shareware distribution.
 - **StarCraft Demo** — Blizzard Entertainment. Upstream notes Blizzard permits non-commercial mirroring of unmodified demos when every original file remains present; the full original payload and license files are kept.
 - **Diablo Shareware** — Blizzard Entertainment. The shareware installation and its manual are kept; retail CD data is not included.

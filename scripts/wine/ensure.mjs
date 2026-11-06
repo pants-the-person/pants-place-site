@@ -10,6 +10,7 @@ import {
   lockPath,
 } from './config.mjs';
 import { syncRuntime } from './sync-runtime.mjs';
+import { extractWinampSkin } from './extract-winamp-skin.mjs';
 
 function submoduleCommit() {
   try {
@@ -30,6 +31,7 @@ const required = [
   path.join(publicWineRoot, 'binaries'),
   path.join(publicWineRoot, 'test/binaries'),
   path.join(publicWineRoot, 'packages'),
+  path.join(publicWineRoot, 'skin/main.png'),
   lockPath,
 ];
 

@@ -2,6 +2,7 @@ import { computed, signal } from '@preact/signals';
 import type { MediaEntry } from '../integrations/media-manifest';
 import media from 'virtual:media-manifest';
 import { audioContext, audioMaster } from './audio';
+import { readFileBytes } from './fs-store';
 import processorUrl from 'spessasynth_lib/dist/spessasynth_processor.min.js?url';
 
 export type VisualizerMode = 'spectrum' | 'oscilloscope' | 'off';
@@ -24,6 +25,111 @@ export const engineError = signal<string | null>(null);
 export const currentTrack = computed(() =>
   currentIndex.value >= 0 ? tracks.value[currentIndex.value] ?? null : null,
 );
+
+function extensionOf(name: string) {
+  const dot = name.lastIndexOf('.');
+  return dot < 0 ? '' : name.slice(dot + 1).toLowerCase();
+}
+
+export function mediaKindForName(name: string): MediaEntry['kind'] {
+  const ext = extensionOf(name);
+  return ext === 'mid' || ext === 'midi' ? 'midi' : 'audio';
+}
+
+export function mediaTypeForName(name: string) {
+  const ext = extensionOf(name);
+  const types: Record<string, string> = {
+    mp3: 'audio/mpeg',
+    ogg: 'audio/ogg',
+    oga: 'audio/ogg',
+    opus: 'audio/ogg',
+    wav: 'audio/wav',
+    flac: 'audio/flac',
+    m4a: 'audio/mp4',
+    aac: 'audio/aac',
+    mid: 'audio/midi',
+    midi: 'audio/midi',
+  };
+  return types[ext] || 'application/octet-stream';
+}
+
+export function prettifyTrackTitle(name: string) {
+  return name
+    .replace(/\.[^.]+$/, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function localTrack(name: string, url: string, size: number): MediaEntry {
+  return {
+    id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name,
+    title: prettifyTrackTitle(name),
+    file: name,
+    url,
+    kind: mediaKindForName(name),
+    size,
+  };
+}
+
+export function addTracks(entries: MediaEntry[]) {
+  if (!entries.length) return;
+  tracks.value = [...tracks.value, ...entries];
+}
+
+export function addFileTracks(files: File[]) {
+  const entries = files
+    .filter((file) => Boolean(file))
+    .map((file) => {
+      const url = URL.createObjectURL(file.type ? file : new Blob([file], { type: mediaTypeForName(file.name) }));
+      return localTrack(file.name, url, file.size);
+    });
+  addTracks(entries);
+  return entries;
+}
+
+export function addTrackFromBytes(name: string, bytes: Uint8Array, play = false) {
+  const blob = new Blob([bytes], { type: mediaTypeForName(name) });
+  const entry = localTrack(name, URL.createObjectURL(blob), bytes.byteLength);
+  addTracks([entry]);
+  if (play) {
+    const index = tracks.value.findIndex((track) => track.id === entry.id);
+    if (index >= 0) void playIndex(index);
+  }
+  return entry;
+}
+
+export async function playVfsTrack(path: string, name: string) {
+  const bytes = await readFileBytes(path);
+  return addTrackFromBytes(name || path.split('\\').pop() || 'track', bytes, true);
+}
+
+export async function enqueueVfsTrack(path: string, name: string) {
+  const bytes = await readFileBytes(path);
+  return addTrackFromBytes(name || path.split('\\').pop() || 'track', bytes, false);
+}
+
+export function clearTracks() {
+  stop();
+  for (const track of tracks.value) {
+    if (track.id.startsWith('local-')) URL.revokeObjectURL(track.url);
+  }
+  tracks.value = [];
+  currentIndex.value = -1;
+  position.value = 0;
+  duration.value = 0;
+}
+
+export function moveTrack(from: number, to: number) {
+  if (from === to || from < 0 || to < 0 || from >= tracks.value.length || to >= tracks.value.length) return;
+  const next = [...tracks.value];
+  const [track] = next.splice(from, 1);
+  next.splice(to, 0, track);
+  tracks.value = next;
+  if (currentIndex.value === from) currentIndex.value = to;
+  else if (from < currentIndex.value && to >= currentIndex.value) currentIndex.value--;
+  else if (from > currentIndex.value && to <= currentIndex.value) currentIndex.value++;
+}
 
 const EQ_FREQS = [60, 170, 310, 600, 1000, 3000, 6000, 12000, 14000, 16000];
 
@@ -204,7 +310,9 @@ export async function playIndex(index: number, from = 0) {
 
 export function playTrackById(mediaId: string) {
   const index = tracks.value.findIndex((track) => track.id === mediaId);
-  if (index >= 0) void playIndex(index);
+  if (index < 0) return false;
+  void playIndex(index);
+  return true;
 }
 
 export function togglePlay() {
@@ -223,8 +331,7 @@ export function togglePlay() {
     return;
   }
   if (currentIndex.value < 0 && tracks.value.length) {
-    const preferred = tracks.value.findIndex((track) => track.id === 'pants-theme-mid');
-    void playIndex(preferred >= 0 ? preferred : 0);
+    void playIndex(0);
   } else if (currentIndex.value >= 0) {
     void playIndex(currentIndex.value, position.value);
   }
@@ -317,6 +424,8 @@ export function setVolume(value: number) {
 
 export function removeTrack(index: number) {
   if (index < 0 || index >= tracks.value.length) return;
+  const removed = tracks.value[index];
+  if (removed.id.startsWith('local-')) URL.revokeObjectURL(removed.url);
   const wasCurrent = index === currentIndex.value;
   tracks.value = tracks.value.filter((_, i) => i !== index);
   if (wasCurrent) {

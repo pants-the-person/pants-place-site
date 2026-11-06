@@ -53,6 +53,8 @@ export interface AppDefinition {
   defaultSize: { w: number; h: number };
   minSize?: { w: number; h: number };
   resizable?: boolean;
+  /** "none" lets an app draw its own chrome, like Winamp's skin. */
+  chrome?: 'win98' | 'none';
   singleton?: boolean;
   component: () => Promise<{ default: ComponentType<AppProps> }>;
   createProps?: (api: AppApi) => Record<string, unknown>;
@@ -74,6 +76,7 @@ export interface WindowState {
   mode: WindowMode;
   props: Record<string, unknown>;
   resizable: boolean;
+  chrome: 'win98' | 'none';
   minW: number;
   minH: number;
   restore?: { x: number; y: number; w: number; h: number };

@@ -2,9 +2,28 @@ import { signal } from '@preact/signals';
 import type { DesktopDocument } from './types';
 import type { MediaEntry } from '../integrations/media-manifest';
 import { buildVfs, type VfsFile, type VfsFolder } from './vfs';
-import { createFileSystemLayers, layerStatus, type LayerBundle } from './fs-layers';
+import { createFileSystemLayers, layerStatus, type LayerBundle, type LayerState } from './fs-layers';
+
+export type DriveId = 'a' | 'c' | 'd';
+
+export interface DriveInfo {
+  id: 'A' | 'C' | 'D';
+  drive: DriveId;
+  label: string;
+  kind: 'floppy' | 'disk' | 'cdrom';
+  readOnly: boolean;
+  icon: string;
+  status: LayerState;
+  root: VfsFolder;
+}
 
 const ZEN_ROOT = '/c';
+const DRIVE_ROOTS: Record<DriveId, string> = { a: '/a', c: '/c', d: '/d' };
+const DRIVE_DEFS = [
+  { id: 'A' as const, drive: 'a' as const, label: '3½ Floppy (A:)', kind: 'floppy' as const, readOnly: true, icon: '/icons/dos.svg' },
+  { id: 'C' as const, drive: 'c' as const, label: 'Win98 (C:)', kind: 'disk' as const, readOnly: false, icon: '/icons/computer.svg' },
+  { id: 'D' as const, drive: 'd' as const, label: 'PantsNet (D:)', kind: 'cdrom' as const, readOnly: true, icon: '/icons/cd.svg' },
+];
 const META_DIR = '/c/.pants';
 const META_PATH = `${META_DIR}/meta.json`;
 const SEED_PATH = `${META_DIR}/seed.json`;
@@ -41,6 +60,19 @@ let metaWrite = Promise.resolve();
 export const fileSystem = signal<VfsFolder>(buildVfs([], []));
 export const fileSystemReady = signal(false);
 export const fileSystemError = signal<string | null>(null);
+export const drives = signal<DriveInfo[]>(
+  DRIVE_DEFS.map((definition) => ({
+    ...definition,
+    status: 'unavailable',
+    root: {
+      type: 'folder',
+      name: `${definition.id}:`,
+      path: `${definition.drive}:\\`,
+      modified: '',
+      children: [],
+    },
+  })),
+);
 
 export function normalizeWinPath(input: string): string {
   let path = String(input || '').replace(/\//g, '\\').replace(/\\+/g, '\\').trim();
@@ -60,16 +92,30 @@ export function winKey(path: string): string {
   return normalizeWinPath(path).toLowerCase();
 }
 
+export function driveOfWin(path: string): DriveId {
+  const normalized = normalizeWinPath(path);
+  const drive = normalized[0]?.toLowerCase();
+  return drive === 'a' || drive === 'd' ? drive : 'c';
+}
+
 export function winToZen(path: string): string {
   const normalized = normalizeWinPath(path);
-  if (normalized === 'c:\\') return ZEN_ROOT;
-  return `${ZEN_ROOT}/${normalized.slice(3).split('\\').join('/')}`;
+  const drive = driveOfWin(normalized);
+  const root = DRIVE_ROOTS[drive];
+  if (normalized === `${drive}:\\`) return root;
+  return `${root}/${normalized.slice(3).split('\\').join('/')}`;
 }
 
 export function zenToWin(path: string): string {
   const clean = String(path || '').replace(/\\/g, '/').replace(/\/+$/, '');
-  if (clean === ZEN_ROOT) return 'c:\\';
-  const rest = clean.startsWith(`${ZEN_ROOT}/`) ? clean.slice(ZEN_ROOT.length + 1) : clean.replace(/^\/+/, '');
+  for (const drive of ['a', 'c', 'd'] as DriveId[]) {
+    const root = DRIVE_ROOTS[drive];
+    if (clean === root) return `${drive}:\\`;
+    if (clean.startsWith(`${root}/`)) {
+      return `${drive}:\\${clean.slice(root.length + 1).split('/').join('\\')}`;
+    }
+  }
+  const rest = clean.replace(/^\/+/, '');
   return rest ? `c:\\${rest.split('/').join('\\')}` : 'c:\\';
 }
 
@@ -80,10 +126,9 @@ async function ensureFs(): Promise<ZenFs> {
     const layers = await createFileSystemLayers();
     layerBundle = layers;
     await configure({
-      mounts: {
-        [ZEN_ROOT]: layers.fs,
-      } as never,
+      mounts: layers.mounts as never,
     });
+    await layers.prepare?.();
     return fs;
   })();
   return fsPromise;
@@ -114,9 +159,11 @@ async function exists(path: string): Promise<boolean> {
 async function resolveZen(path: string): Promise<string | null> {
   if (!fsp) return null;
   const normalized = normalizeWinPath(path);
-  if (normalized === 'c:\\') return ZEN_ROOT;
+  const drive = driveOfWin(normalized);
+  const root = DRIVE_ROOTS[drive];
+  if (normalized === `${drive}:\\`) return root;
   const parts = normalized.slice(3).split('\\').filter(Boolean);
-  let current = ZEN_ROOT;
+  let current = root;
   for (const part of parts) {
     let entries: string[] = [];
     try {
@@ -267,10 +314,14 @@ function extensionOf(name: string): string {
 
 function defaultOpenWith(name: string): string | undefined {
   const ext = extensionOf(name);
-  if (['txt', 'md', 'ini', 'log', 'bat', 'cfg', 'sys'].includes(ext)) return 'notepad';
+  if (!ext || ['txt', 'md', 'ini', 'log', 'bat', 'cfg', 'sys', 'asm'].includes(ext)) return 'notepad';
   if (ext === 'exe') return 'wine';
   if (ext === 'zip' || ext === 'iso' || ext === 'cue') return 'wine';
-  if (['mid', 'midi', 'ogg', 'oga', 'url'].includes(ext)) return 'winamp';
+  if (
+    ['mid', 'midi', 'ogg', 'oga', 'opus', 'mp3', 'wav', 'flac', 'm4a', 'aac', 'url'].includes(ext)
+  ) {
+    return 'winamp';
+  }
   return undefined;
 }
 
@@ -289,12 +340,17 @@ async function buildTree(zenDir: string, winDir: string): Promise<VfsFolder> {
     }
     let meta = metaFor(winPath);
     const ext = extensionOf(name);
+    const drive = driveOfWin(winPath);
     // Static/R2 layers cannot carry Pants metadata. Media names use the same
     // slugged id as the build-time playlist, so derive the player id here.
-    if (!meta && ['mid', 'midi', 'ogg', 'oga'].includes(ext) && /^c:\\media\\/i.test(winPath)) {
-      const relative = winPath.replace(/^c:\\media\\/i, '').replace(/\\/g, '/');
-      const mediaId = relative.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
-      meta = { openWith: 'winamp', props: { mediaId } };
+    if (!meta && ['mid', 'midi', 'ogg', 'oga', 'opus', 'mp3', 'wav', 'flac', 'm4a', 'aac'].includes(ext)) {
+      if (drive === 'c' && /^c:\\media\\/i.test(winPath)) {
+        const relative = winPath.replace(/^c:\\media\\/i, '').replace(/\\/g, '/');
+        const mediaId = relative.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+        meta = { openWith: 'winamp', props: { mediaId } };
+      } else {
+        meta = { openWith: 'winamp' };
+      }
     }
     children.push({
       type: 'file',
@@ -315,18 +371,53 @@ async function buildTree(zenDir: string, winDir: string): Promise<VfsFolder> {
   });
   return {
     type: 'folder',
-    name: winDir === 'c:\\' ? 'C:' : winDir.split('\\').pop() || winDir,
+    name:
+      winDir === 'c:\\' || winDir === 'a:\\' || winDir === 'd:\\'
+        ? `${driveOfWin(winDir).toUpperCase()}:`
+        : winDir.split('\\').pop() || winDir,
     path: winKey(winDir),
     modified: new Date().toLocaleString(),
     children,
   };
 }
 
+async function tryBuildTree(zenDir: string, winDir: string): Promise<VfsFolder> {
+  try {
+    if (!fsp) throw new Error('ZenFS is not ready');
+    await fsp.readdir(zenDir);
+    return await buildTree(zenDir, winDir);
+  } catch {
+    return {
+      type: 'folder',
+      name: `${driveOfWin(winDir).toUpperCase()}:`,
+      path: winKey(winDir),
+      modified: '',
+      children: [],
+    };
+  }
+}
+
 export async function refreshFileSystem() {
   await ensureC();
   if (!fsp) return;
   await loadMeta();
-  fileSystem.value = await buildTree(ZEN_ROOT, 'c:\\');
+  const [cRoot, aRoot, dRoot] = await Promise.all([
+    tryBuildTree('/c', 'c:\\'),
+    tryBuildTree('/a', 'a:\\'),
+    tryBuildTree('/d', 'd:\\'),
+  ]);
+  fileSystem.value = cRoot;
+  drives.value = DRIVE_DEFS.map((definition) => ({
+    ...definition,
+    status:
+      definition.drive === 'a'
+        ? layerStatus.value.floppy
+        : definition.drive === 'd'
+          ? layerStatus.value.r2
+          : layerStatus.value.static,
+    root:
+      definition.drive === 'a' ? aRoot : definition.drive === 'd' ? dRoot : cRoot,
+  }));
   fileSystemReady.value = true;
 }
 
@@ -354,9 +445,14 @@ function validName(name: string): string | null {
   return clean;
 }
 
+function assertWritable(path: string) {
+  if (driveOfWin(path) !== 'c') throw new Error('That drive is read-only.');
+}
+
 export async function createFolder(parentPath: string, name: string) {
   const clean = validName(name);
   if (!clean) throw new Error('Invalid folder name.');
+  assertWritable(parentPath);
   await ensureC();
   const parent = await resolveZen(parentPath);
   if (!parent) throw new Error('The folder no longer exists.');
@@ -369,6 +465,7 @@ export async function createFolder(parentPath: string, name: string) {
 export async function createTextFile(parentPath: string, name: string, content = '') {
   const clean = validName(name);
   if (!clean) throw new Error('Invalid file name.');
+  assertWritable(parentPath);
   await ensureC();
   const parent = await resolveZen(parentPath);
   if (!parent) throw new Error('The folder no longer exists.');
@@ -400,6 +497,7 @@ export async function readFileBytes(path: string): Promise<Uint8Array> {
 }
 
 export async function writeTextFile(path: string, content: string) {
+  assertWritable(path);
   await ensureC();
   const target = await resolveZen(path);
   if (!target) {
@@ -417,6 +515,7 @@ export async function writeTextFile(path: string, content: string) {
 }
 
 export async function writeBinaryFile(path: string, data: Uint8Array) {
+  assertWritable(path);
   await ensureC();
   const normalized = normalizeWinPath(path);
   const parentPath = normalized.replace(/\\[^\\]*$/, '');
@@ -428,6 +527,7 @@ export async function writeBinaryFile(path: string, data: Uint8Array) {
 }
 
 export async function uploadFiles(parentPath: string, files: File[]) {
+  assertWritable(parentPath);
   await ensureC();
   const parent = await resolveZen(parentPath);
   if (!parent) throw new Error('The folder no longer exists.');
@@ -442,6 +542,7 @@ export async function uploadFiles(parentPath: string, files: File[]) {
 export async function renameNode(path: string, newName: string) {
   const clean = validName(newName);
   if (!clean) throw new Error('Invalid name.');
+  assertWritable(path);
   await ensureC();
   const source = await resolveZen(path);
   if (!source) throw new Error('The file no longer exists.');
@@ -468,6 +569,7 @@ export async function renameNode(path: string, newName: string) {
 }
 
 export async function deleteNode(path: string) {
+  assertWritable(path);
   await ensureC();
   const target = await resolveZen(path);
   if (!target) return;
