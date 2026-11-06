@@ -93,7 +93,6 @@ function wranglerConfig({ kind, slug, name }) {
   "workers_dev": false,
   "assets": {
     "directory": "./dist",
-    "base_path": "${base}",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page"
   },
@@ -179,7 +178,7 @@ function patchAstroConfig(dir, base) {
   let config = read(file);
   config = replaceConfigOption(config, 'site', '"https://pants.place"');
   config = replaceConfigOption(config, 'base', `process.env.PANTS_SITE_BASE || "${base}"`);
-  config = replaceConfigOption(config, 'outDir', '"./dist"');
+  config = replaceConfigOption(config, 'outDir', `"./dist${base}"`);
   return writeIfChanged(file, config);
 }
 
@@ -246,6 +245,7 @@ function main() {
 
   console.log(`[subsites] ${kind}/${slug} ready`);
   console.log(`[subsites]   Internal base: ${base}${astroChanged ? ' (updated)' : ''}`);
+  console.log(`[subsites]   Astro output:  ./dist${base}`);
   console.log(`[subsites]   Public link:   https://pants.place/${kind}/${slug}`);
   console.log(`[subsites]   Config:        ${WRANGLER_PATH}`);
   console.log(`[subsites]   Links:         ${linksChanged} file${linksChanged === 1 ? '' : 's'} updated`);

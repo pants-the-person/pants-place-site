@@ -71,20 +71,24 @@ any subsite code.
 
 ### How the mount works
 
-Each subsite is an assets-only Worker. Astro still writes a normal `dist/` folder,
-but builds with an internal base and `assets.base_path`:
+Each subsite is an assets-only Worker. Astro builds with an internal base and a
+matching nested output directory:
 
 - routes for both `/sites/member/<slug>` and `/sites/member/<slug>/*`
 - `assets.directory: "./dist"`
-- `assets.base_path: "/sites/member/<slug>"`
-- Astro `base: "/sites/member/<slug>"` and `outDir: "./dist"`
+- Astro `base: "/sites/member/<slug>"` and
+  `outDir: "./dist/sites/member/<slug>"`
 
 The request and file paths line up without a Worker script:
 
 ```text
 request:           /sites/member/pants/about/
-asset served from: ./dist/about/index.html
+asset served from: ./dist/sites/member/pants/about/index.html
 ```
+
+`assets.base_path` would be simpler, but it is not enabled on all Cloudflare
+accounts (`100343: A non-root assets.base_path is not enabled for this
+account`). The nested output above works on standard accounts.
 
 There is no `main`, no `ASSETS` binding and no prefix stripping. The site is
 served and billed as static assets.
@@ -133,8 +137,8 @@ node scripts/subsites/setup.mjs --dir ../site-member-pants --kind member --slug 
 This writes `wrangler.jsonc`, patches `astro.config.*` to use
 `site: "https://pants.place"`,
 `base: process.env.PANTS_SITE_BASE || "/sites/member/pants"` and
-`outDir: "./dist"`, and rewrites cross-site GitHub Pages links to
-`https://pants.place/sites/...`.
+`outDir: "./dist/sites/member/pants"`, and rewrites cross-site GitHub Pages
+links to `https://pants.place/sites/...`.
 
 See [`scripts/subsites/README.md`](scripts/subsites/README.md) for details.
 

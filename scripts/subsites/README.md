@@ -29,27 +29,33 @@ rebuild, and no parent deploy is required.
 
 ## How the mount works
 
-Each site is an **assets-only Worker**. Astro still writes a normal `dist/`
-folder, but it builds with `base: "/sites/member/pants"`, so its links and assets
-use the internal route. `wrangler.jsonc` sets `assets.base_path` to the same
-prefix:
+Each site is an **assets-only Worker**. Astro builds with
+`base: "/sites/member/pants"` and writes its output into a matching nested
+folder:
+
+```text
+astro outDir: ./dist/sites/member/pants
+```
+
+Cloudflare maps the Worker route prefix onto that asset directory:
 
 ```jsonc
 "assets": {
-  "directory": "./dist",
-  "base_path": "/sites/member/pants"
+  "directory": "./dist"
 }
 ```
 
-Cloudflare maps the public route onto the files at the root of `dist`:
-
 ```text
 request:           /sites/member/pants/about/
-asset served from: ./dist/about/index.html
+asset served from: ./dist/sites/member/pants/about/index.html
 ```
 
 No Worker script, prefix stripping or `ASSETS` binding is needed. The site ships
 only static files, so requests are served and billed as static assets.
+
+> Do not use `assets.base_path` for these sites unless your Cloudflare account
+> has that feature enabled. It returns API error `100343` on accounts without
+> access. The nested `outDir` above works on standard accounts.
 
 ## Public deep links
 
@@ -79,10 +85,10 @@ node scripts/subsites/setup.mjs \
 
 The script writes:
 
-- `wrangler.jsonc` — Worker name, routes, assets directory and `base_path`
+- `wrangler.jsonc` — Worker name, routes, and assets directory
 - `astro.config.mjs` — `site: "https://pants.place"`,
   `base: process.env.PANTS_SITE_BASE || "/sites/member/pants"`, and
-  `outDir: "./dist"`
+  `outDir: "./dist/sites/member/pants"`
 - cross-site links — rewrites old
   `https://pants-the-person.github.io/site-<kind>-<slug>/` links to
   `https://pants.place/sites/<kind>/<slug>/`
@@ -134,13 +140,13 @@ window without any cross-origin plumbing.
 - The IE iframe is sandboxed without `allow-scripts`, so a subsite's scripts do
   not run inside the desktop. The sites are designed to be no-JS; the direct
   `/sites/...` route is the only place a script could run.
-- `assets.base_path` requires Wrangler 4.148.0 or later. This repository uses
-  Wrangler 4.157.0.
+- The nested `outDir` must match the Worker route prefix. That is what lets
+  Cloudflare serve the site at `/sites/<kind>/<slug>/` without a routing script.
 - The site's GitHub Pages workflow should be removed (or kept only as a
   historical backup). Production is the Worker.
-- If a site needs custom `_headers` or `_redirects`, use the public/internal
-  path in those rules. `assets.base_path` paths in `_headers`, `_redirects` and
-  `run_worker_first` are public URL paths.
+- If a site needs custom `_headers` or `_redirects`, put them at the assets root
+  (`dist/`). With a nested `outDir`, Astro's `public/` files land inside
+  `dist/sites/...`, which Cloudflare does not read as worker metadata.
 
 ## Adding another site
 

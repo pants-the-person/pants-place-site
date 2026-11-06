@@ -231,13 +231,14 @@ search. It contains only metadata (title, description, public path, internal
 path, favorite flag), no site source.
 
 Each site is an assets-only Astro build with
-`base: "/sites/member/<slug>"` and
-`assets.base_path: "/sites/member/<slug>"`, so Cloudflare serves the files at
-the internal route without a Worker script:
+`base: "/sites/member/<slug>"`. Astro writes into a matching nested output
+folder, so Cloudflare serves the files at the internal route without a Worker
+script:
 
 ```text
+astro outDir:      ./dist/sites/member/pants
 request:           /sites/member/pants/about/
-asset served from: ./dist/about/index.html
+asset served from: ./dist/sites/member/pants/about/index.html
 ```
 
 Cloudflare route matching is most-specific-first, so:
