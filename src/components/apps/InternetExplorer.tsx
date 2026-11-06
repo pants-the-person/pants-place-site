@@ -6,6 +6,7 @@ import {
   oldNetFavorites,
   oldNetOriginalUrl,
   oldNetProxyUrl,
+  oldNetDirectUrl,
   normalizeExternalUrl,
   isOldNetHost,
   OLDNET_DEFAULT_YEAR,
@@ -15,6 +16,12 @@ import {
 import { showDialog } from '../../kernel/dialogs';
 import { playSound } from '../../kernel/audio';
 import { openApp, toggleMaximizeWindow } from '../../kernel/windows';
+import {
+  addressForLauncherPath,
+  contentPathForLauncherPath,
+  isPersonalContentPath,
+  siteForLauncherPath,
+} from '../../kernel/sites';
 import { writeTextFile } from '../../kernel/content';
 import MenuBar, { type AppMenu, type AppMenuItem } from '../os/MenuBar';
 import { playTrackById } from '../../kernel/player';
@@ -193,11 +200,12 @@ export default function InternetExplorer({ appProps, api, windowId }: AppProps) 
       setLoading(false);
     } catch {
       if (id !== requestId.current) return true;
-      // Keep the address and let The Old Net's own cross-origin page load.
-      // Links clicked inside it will not update our URL bar, but the page is
-      // still usable when a snapshot cannot be safely rendered in srcdoc.
+      // The cached API failed. Fall back to The Old Net's own cross-origin
+      // page so the archive is still usable. Links clicked inside it will not
+      // update our URL bar, but the page still renders.
       setExternalMode('iframe');
       setExternalHtml(null);
+      setExternalSrc(oldNetDirectUrl(url, requestedYear));
       setTitle(`${new URL(url).hostname} - The Old Net`);
       setLoading(false);
     }
@@ -313,7 +321,7 @@ export default function InternetExplorer({ appProps, api, windowId }: AppProps) 
     const href = anchor.getAttribute('href');
     if (!href || href.startsWith('#') || /^javascript:/i.test(href)) return false;
     if (/^mailto:/i.test(href)) return false;
-    const absolute = new URL(href, 'https://theoldnet.com/').href;
+    const absolute = new URL(href, addressRef.current || 'https://theoldnet.com/').href;
     const original = oldNetOriginalUrl(absolute);
     if (original) {
       void loadExternal(original, yearRef.current, true);
@@ -344,6 +352,47 @@ export default function InternetExplorer({ appProps, api, windowId }: AppProps) 
         const anchor = target?.closest?.('a') as HTMLAnchorElement | null;
         if (!anchor) return;
         if (openFrameLink(anchor)) event.preventDefault();
+      },
+      true,
+    );
+  }
+
+  function wireInternalDocument() {
+    const frame = frameRef.current;
+    if (external || !frame) return;
+    const doc = frame.contentDocument;
+    if (!doc) return;
+    if ((doc as Document & { __pantsInternalWired?: boolean }).__pantsInternalWired) return;
+    (doc as Document & { __pantsInternalWired?: boolean }).__pantsInternalWired = true;
+    doc.addEventListener(
+      'click',
+      (event) => {
+        if (event.defaultPrevented || event.button !== 0) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        const target = event.target as Element | null;
+        const anchor = target?.closest?.('a') as HTMLAnchorElement | null;
+        if (!anchor) return;
+        const href = anchor.getAttribute('href');
+        if (!href || href.startsWith('#') || /^javascript:/i.test(href)) return;
+        if (/^mailto:/i.test(href)) return;
+        let absolute: URL;
+        try {
+          absolute = new URL(href, frame.contentWindow?.location.href || window.location.href);
+        } catch {
+          return;
+        }
+        if (absolute.origin !== window.location.origin) {
+          event.preventDefault();
+          void loadExternal(absolute.href, yearRef.current, true);
+          return;
+        }
+        const site = siteForLauncherPath(absolute.pathname);
+        if (site) {
+          event.preventDefault();
+          const nextPath = `${contentPathForLauncherPath(absolute.pathname, site)}${absolute.search}${absolute.hash}`;
+          const nextAddress = `${addressForLauncherPath(absolute.pathname, site)}${absolute.search}${absolute.hash}`;
+          loadPath(nextPath, nextAddress);
+        }
       },
       true,
     );
@@ -821,7 +870,13 @@ export default function InternetExplorer({ appProps, api, windowId }: AppProps) 
             } catch {
               /* cross-origin page */
             }
+            wireInternalDocument();
           }}
+          sandbox={
+            !external && isPersonalContentPath(path)
+              ? 'allow-same-origin allow-forms'
+              : undefined
+          }
           style={{
             width: '100%',
             height: '100%',

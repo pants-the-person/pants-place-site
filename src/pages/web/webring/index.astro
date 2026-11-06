@@ -71,8 +71,7 @@ const members = ringData.members;
           if (window.parent !== window) {
             window.parent.postMessage({ type: 'pants:navigate', url, year: 1998 }, location.origin);
           } else {
-            location.href = 'https://theoldnet.com/get?year=1998&scripts=false&decode=false&url=' +
-              encodeURIComponent(url);
+            location.href = '/api/oldnet/v2/get?' + new URLSearchParams({ url, year: '1998' }).toString();
           }
         });
       }

@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pants-place-oldnet-api",
+  "main": "worker/oldnet.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "pants.place/api/oldnet",
+      "zone_name": "pants.place"
+    },
+    {
+      "pattern": "pants.place/api/oldnet/*",
+      "zone_name": "pants.place"
+    }
+  ],
+  "cache": {
+    "enabled": true,
+    "cross_version_cache": true
+  },
+  "observability": {
+    "enabled": true
+  }
+}

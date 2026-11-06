@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentType } from 'preact';
 import DesktopIcons from './DesktopIcons';
 import Taskbar from './Taskbar';
@@ -14,6 +14,7 @@ import { showDialog } from '../../kernel/dialogs';
 import { documents as documentStore, initFileSystem, mediaFiles } from '../../kernel/content';
 import { installFilesystemBridge } from '../../kernel/fs-bridge';
 import { closeContextMenu as closeSharedMenu, openContextMenu as openSharedMenu } from '../../kernel/menu';
+import { startDeepLink, type PersonalSiteDeepLink } from '../../kernel/autostart';
 import type { AppProps, DesktopDocument, WindowState } from '../../kernel/types';
 
 function WindowContent({ win }: { win: WindowState }) {
@@ -53,10 +54,17 @@ function WindowContent({ win }: { win: WindowState }) {
   return <Component windowId={win.id} appProps={win.props} api={getAppApi(win.id)} />;
 }
 
-export default function Desktop({ documents }: { documents: DesktopDocument[] }) {
+export default function Desktop({
+  documents,
+  deepLink,
+}: {
+  documents: DesktopDocument[];
+  deepLink?: PersonalSiteDeepLink;
+}) {
   const [power, setPower] = useState<'off' | 'restart' | 'logoff' | 'standby' | null>(null);
   const [bsod, setBsod] = useState(false);
   const [notify, setNotify] = useState<string | null>(null);
+  const deepLinkStarted = useRef(false);
 
   useEffect(() => {
     initSettings();
@@ -115,6 +123,11 @@ export default function Desktop({ documents }: { documents: DesktopDocument[] })
     window.addEventListener('pants:logoff', onLogoff);
     window.addEventListener('pants:bsod', onBsod);
     window.addEventListener('pants:notify', onNotify);
+
+    if (!deepLinkStarted.current) {
+      deepLinkStarted.current = true;
+      startDeepLink(deepLink);
+    }
 
     return () => {
       stopPlayerLoop();

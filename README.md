@@ -7,7 +7,7 @@ A functional Windows 98-style desktop that runs entirely in the browser.
 - **Winamp 2.8** clone with playlist, 10-band EQ and spectrum analyser. Plays **MIDI** through a General MIDI SoundFont and **OGG** through the Web Audio API.
 - **Internet Explorer 5** clone browsing a fake 1998 internet at `/web/` with news, a devlog, guestbook, webring, downloads and an AltaVista-style search. It can also browse archived real websites through **The Old Net**, with a year selector, URL tracking and Copy Link.
 - **The Old Net Webring** with 223 scraped retro sites and a filter/random button.
-- **UltimateShades**, a friend-site gaming shrine about Monkey Island and adventure games, alongside Kylie's Cyber Sanctuary (Final Fantasy, Gundam and raves).
+- **Six personal sites** under `/member/` and `/char/`, each maintained in its own Astro git submodule. Visiting a site path boots the desktop and opens IE directly at that page.
 - **Explorer, Notepad, Paint, Minesweeper, Calculator, Display Properties and Help**.
 - **Wine-Assembly** running 41 real Windows 98 programs and games from mirrored `.exe` files in a WebAssembly x86 emulator. Open them from **Start → Programs → Accessories**, **Games**, or **System Tools**.
 - **Persistent `C:\` drive** shared by Explorer, Notepad, Paint and every Wine program. ZenFS uses OPFS for writes with read-only R2 and static fallback layers.
@@ -19,6 +19,7 @@ A functional Windows 98-style desktop that runs entirely in the browser.
 Node **26.13.0** is required (`.nvmrc` / `nvm use`). Astro 7 requires at least Node 22.23.4.
 
 ```bash
+git submodule update --init --recursive
 npm install
 npm run dev
 ```
@@ -193,6 +194,80 @@ npm run sync:webring
 ```
 
 The webring page links members through The Old Net archive and supports filtering and a random-site button.
+
+## Personal sites
+
+The member and character homepages live in separate repositories and are mounted as git submodules:
+
+```text
+sites/member/pants/     -> https://github.com/pants-the-person/site-member-pants
+sites/member/kylie/     -> https://github.com/pants-the-person/site-member-kylie
+sites/member/shades/    -> https://github.com/pants-the-person/site-member-shades
+sites/member/pip/       -> https://github.com/pants-the-person/site-member-pip
+sites/char/chogi/       -> https://github.com/pants-the-person/site-char-chogi
+sites/char/jiroji/      -> https://github.com/pants-the-person/site-char-jiroji
+```
+
+Each repository is a static Astro site with no JavaScript. `npm run build` runs `scripts/sites/build.mjs`, which:
+
+- builds every site under `sites/*/*`
+- installs its dependencies with `npm ci`
+- copies its `dist/` output to `public/web/<kind>/<slug>/`
+- rewrites its GitHub Pages base path to the local fake-web path
+- rewrites links between the personal sites to local `/web/...` paths
+- strips `<script>` tags and inline handlers so the no-JS rule is enforced
+- generates `src/generated/personal-sites.ts`
+
+The current site template includes a small hit-counter script. It is stripped by
+the parent build, so the counter shows its default zeroes unless the site renders
+a static number.
+
+The generated content is ignored by git. Rebuild it manually with:
+
+```bash
+npm run sites:build
+npm run sites:build:force
+```
+
+### Path-based autostart
+
+Every site page is also a desktop deep link:
+
+```text
+/member/pants
+/member/pants/about
+/member/kylie
+/member/shades
+/member/pip
+/char/chogi
+/char/jiroji
+```
+
+Visiting one of those paths renders the desktop and opens IE at the corresponding fake address, for example `http://www.pants.place/member/pants/`. Internal content stays at `/web/member/pants/`, so the IE iframe never loads the desktop inside itself.
+
+The old `~pants`, `~kylie` and `~ultimateshades` pages were removed. Their URLs redirect to the new sites, and their Tripod/GeoCities aliases still resolve.
+
+### Query-based autostart
+
+`autostart` opens registered apps after the desktop boots:
+
+```text
+/?autostart=notepad.exe
+/?autostart=notepad.exe,winamp.exe
+/?autostart=notepad.exe&autostart=winamp.exe
+/member/pants?autostart=winamp.exe
+```
+
+`.exe` names resolve to their Wine equivalents where one exists. Path autostart and query autostart are independent and combine on the same URL.
+
+### Adding a site
+
+1. Create a repository named `site-<kind>-<slug>`.
+2. Add it with `git submodule add -b main <repo-url> sites/<kind>/<slug>`.
+3. Run `npm run sites:build` and commit `src/generated/personal-sites.ts`.
+4. Use `npm run sites:update` to bump all site submodule pointers to their remote `main` branches for review.
+
+Because the parent build executes each site's `npm ci` and `npm run build`, review submodule bumps before deploying. Build sub-sites in a job without parent deploy secrets if the site authors are not fully trusted.
 
 ## Deployment
 

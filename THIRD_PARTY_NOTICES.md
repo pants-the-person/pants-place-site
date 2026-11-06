@@ -36,7 +36,7 @@ Pants Place 98 is an unofficial fan project. The following third-party works are
 
 ## The Old Net
 
-- **The Old Net** — https://theoldnet.com — a public frontend for the Internet Archive Wayback Machine. Pants Place uses its CORS-enabled `/get` proxy to render archived pages and its `/find` search endpoint for archive results. The Old Net's own terms describe personal use as free; this site attributes the service and does not proxy it server-side.
+- **The Old Net** — https://theoldnet.com — a public frontend for the Internet Archive Wayback Machine. Pants Place uses its `/get` proxy to render archived pages and its `/find` search endpoint for archive results. A first-party Worker (`pants-place-oldnet-api`, `worker/oldnet.ts`) fetches archived pages on demand, strips active content, and lets Cloudflare cache the sanitized result for up to a year, which reduces repeat load on The Old Net. The Worker sends a browser User-Agent because the origin deflects obvious bots. The Old Net's own terms describe personal use as free; this site attributes and links the service.
 - **Internet Archive Wayback Machine** — https://archive.org/web/ — archived page content and assets are served by The Old Net from the Internet Archive. Archived sites retain their original copyright and terms.
 - **The Old Net Webring** — https://webring.theoldnet.com/ — member names, URLs and descriptions are scraped into `src/data/oldnet-webring.json`. The webring is attributed and linked on the local `/web/webring/` page.
 

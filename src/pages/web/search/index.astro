@@ -9,9 +9,12 @@ const index = [
   { title: 'Pants Place 98 — Home', url: '/web/', text: 'homepage pants 486 midi webring guestbook' },
   { title: 'Pants News', url: '/web/news/', text: 'news archive updates overclocking y2k webring midi' },
   { title: 'The Pants Log', url: '/web/blog/', text: 'blog devlog computers web winamp geocities 486 midi' },
-  { title: 'pants_the_person // GeoCities', url: '/web/~pants/', text: 'personal homepage 486 sound blaster doom midi' },
-  { title: "Kylie's Cyber Sanctuary", url: '/web/~kylie/', text: 'kylie final fantasy vii gundam wing mobile suit rave techno warehouse flyer materia chocobo cat' },
-  { title: 'UltimateShades', url: '/web/~ultimateshades/', text: 'gaming monkey island lucasarts scumm adventure games reviews grim fandango day of the tentacle high scores' },
+  { title: 'pants_the_person', url: '/web/member/pants/', text: 'personal homepage 486 sound blaster doom midi overclocking' },
+  { title: "Kylie's Cyber Sanctuary", url: '/web/member/kylie/', text: 'kylie final fantasy vii gundam wing mobile suit rave techno warehouse flyer materia chocobo cat' },
+  { title: 'UltimateShades Arcade', url: '/web/member/shades/', text: 'gaming monkey island lucasarts scumm adventure games reviews grim fandango day of the tentacle high scores' },
+  { title: "pip's kewl page", url: '/web/member/pip/', text: 'pip pokemon anime pentium two guestbook first homepage' },
+  { title: "Chogi's Nest", url: '/web/char/chogi/', text: 'chogi cat chocobo treats naps guestbook keyboard' },
+  { title: 'JIROJI.EXE', url: '/web/char/jiroji/', text: 'jiroji virtual mascot patch notes save files modem songs' },
   { title: 'Guestbook', url: '/web/guestbook/', text: 'sign guestbook messages friends' },
   { title: 'The Old Net Webring', url: '/web/webring/', text: 'webring members previous next random retro sites' },
   { title: 'Downloads', url: '/web/downloads/', text: 'midi ogg wallpapers buttons downloads' },
@@ -71,6 +74,7 @@ const index = [
       const oldnetSection = document.getElementById('oldnet-search');
       const oldnetResults = document.getElementById('oldnet-results');
       const oldnetSummary = document.getElementById('oldnet-summary');
+      const OLDNET_API = '/api/oldnet/v2';
 
       function appendResult(list, item) {
         const li = document.createElement('li');
@@ -89,20 +93,39 @@ const index = [
         list.appendChild(li);
       }
 
+      async function fetchOldNetSearch(term) {
+        // Prefer the cached same-origin API. In `astro dev` (or if the API is
+        // down) fall back to The Old Net's CORS-enabled endpoint.
+        const urls = [
+          OLDNET_API + '/find?' + new URLSearchParams({ query: term }).toString(),
+          'https://theoldnet.com/find?query=' + encodeURIComponent(term),
+        ];
+        let lastError;
+        for (let index = 0; index < urls.length; index++) {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 20000);
+          try {
+            const response = await fetch(urls[index], {
+              ...(index === 1 ? { mode: 'cors' } : {}),
+              signal: controller.signal,
+            });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return await response.text();
+          } catch (error) {
+            lastError = error;
+          } finally {
+            clearTimeout(timer);
+          }
+        }
+        throw lastError;
+      }
+
       async function searchOldNet(term) {
         oldnetSection.style.display = 'block';
         oldnetResults.replaceChildren();
         oldnetSummary.textContent = 'Contacting The Old Net...';
         try {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 12000);
-          const response = await fetch(
-            'https://theoldnet.com/find?query=' + encodeURIComponent(term),
-            { mode: 'cors', signal: controller.signal },
-          );
-          clearTimeout(timer);
-          if (!response.ok) throw new Error('HTTP ' + response.status);
-          const html = await response.text();
+          const html = await fetchOldNetSearch(term);
           const doc = new DOMParser().parseFromString(html, 'text/html');
           const seen = new Set();
           const entries = [];
@@ -126,7 +149,7 @@ const index = [
           for (const entry of entries.slice(0, 20)) {
             appendResult(oldnetResults, {
               title: entry.title,
-              url: 'https://theoldnet.com/get?year=1998&scripts=false&decode=false&url=' + encodeURIComponent(entry.original),
+              url: OLDNET_API + '/get?' + new URLSearchParams({ url: entry.original, year: '1998' }).toString(),
               oldnetUrl: entry.original,
               year: 1998,
               description: entry.original,

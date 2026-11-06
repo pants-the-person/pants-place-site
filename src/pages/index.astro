@@ -1,62 +1,8 @@
 ---
-import { getCollection } from 'astro:content';
-import Desktop from '../components/os/Desktop';
-import BootScreen from '../components/os/BootScreen.astro';
-import type { DesktopDocument } from '../kernel/types';
-import '../styles/win98.css';
-import '../styles/apps.css';
-import '../styles/wine.css';
+import DesktopPage from '../components/os/DesktopPage.astro';
+import { getDesktopDocuments } from '../lib/desktop';
 
-const entries = await getCollection('documents');
-const documents: DesktopDocument[] = entries
-  .sort((a, b) => a.data.title.localeCompare(b.data.title))
-  .map((entry) => ({
-    id: entry.id,
-    title: entry.data.title,
-    filename: `${entry.id.replace(/[^a-z0-9-]+/gi, '-').toUpperCase()}.TXT`,
-    body: entry.body ?? '',
-    updated: entry.data.updated,
-  }));
+const documents = await getDesktopDocuments();
 ---
 
-<!doctype html>
-<html lang="en" data-scheme="standard" data-wallpaper="teal">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Pants Place 98 — a complete retro desktop</title>
-    <meta
-      name="description"
-      content="Pants Place 98 is a functional Windows 98-style desktop in your browser: a real FreeDOS VM, Winamp with MIDI and OGG playback, and a fake 1998 internet."
-    />
-    <meta name="theme-color" content="#008080" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <meta property="og:title" content="Pants Place 98" />
-    <meta
-      property="og:description"
-      content="A functional Windows 98-style desktop with a real FreeDOS VM, Winamp, and a fake 1998 internet."
-    />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://pants.place/" />
-    <meta property="og:image" content="https://pants.place/og.png" />
-    <meta name="twitter:card" content="summary_large_image" />
-  </head>
-  <body>
-    <BootScreen />
-    <Desktop client:load documents={documents} />
-
-    <noscript>
-      <div style="position: fixed; inset: 0; background: #008080; color: #fff; padding: 32px; font-family: monospace">
-        <h1>Pants Place 98</h1>
-        <p>This desktop needs JavaScript. The fake internet does not:</p>
-        <ul>
-          <li><a style="color: #fff" href="/web/">PantsNet home</a></li>
-          <li><a style="color: #fff" href="/web/news/">News</a></li>
-          <li><a style="color: #fff" href="/web/blog/">The Pants Log</a></li>
-        </ul>
-      </div>
-    </noscript>
-
-
-  </body>
-</html>
+<DesktopPage documents={documents} />

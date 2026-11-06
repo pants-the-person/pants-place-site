@@ -1,3 +1,19 @@
 /.well-known/matrix/client /.well-known/matrix/client.json 200
 /.well-known/matrix/server /.well-known/matrix/server.json 200
 /.well-known/matrix/support /.well-known/matrix/support.json 200
+
+# Removed personal pages. Keep old links working inside the fake web and from
+# the public domain.
+/web/~pants/ /web/member/pants/ 301
+/web/~kylie/ /web/member/kylie/ 301
+/web/~ultimateshades/ /web/member/shades/ 301
+/~pants/ /member/pants 301
+/~kylie/ /member/kylie 301
+/~ultimateshades/ /member/shades 301
+
+/web/~pants/* /web/member/pants/:splat 301
+/web/~kylie/* /web/member/kylie/:splat 301
+/web/~ultimateshades/* /web/member/shades/:splat 301
+/~pants/* /member/pants/:splat 301
+/~kylie/* /member/kylie/:splat 301
+/~ultimateshades/* /member/shades/:splat 301

@@ -1,0 +1,16 @@
+---
+import DesktopPage from '../components/os/DesktopPage.astro';
+import { getDesktopDocuments } from '../lib/desktop';
+import { routesForPersonalSites } from '../lib/personal-site-routes';
+import { personalSites, type PersonalSite } from '../kernel/sites';
+import type { PersonalSiteDeepLink } from '../kernel/autostart';
+
+export function getStaticPaths() {
+  return routesForPersonalSites(personalSites);
+}
+
+const { site, deepLink } = Astro.props as { site: PersonalSite; deepLink: PersonalSiteDeepLink };
+const documents = await getDesktopDocuments();
+---
+
+<DesktopPage documents={documents} site={site} deepLink={deepLink} />

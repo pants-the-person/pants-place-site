@@ -1,3 +1,5 @@
+import { personalSites } from './sites';
+
 export interface WebSite {
   host: string;
   path: string;
@@ -15,14 +17,16 @@ export interface OldNetSite {
 }
 
 export const OLDNET_ORIGIN = 'https://theoldnet.com';
+/** Same-origin caching API, deployed from `worker/oldnet.ts`. */
+export const OLDNET_API_PREFIX = '/api/oldnet/v2';
 export const OLDNET_DEFAULT_YEAR = 1998;
 export const OLDNET_YEARS = [1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006];
 
 export const WEB_ORIGIN = 'http://www.pants.place';
 const WEB_HOSTS = ['pants.place', 'www.pants.place'];
 
-export function oldNetProxyUrl(url: string, year = OLDNET_DEFAULT_YEAR): string {
-  if (/^https?:\/\/theoldnet\.com\/get/i.test(url)) return url;
+/** Direct (uncached) The Old Net URL. Kept as a fallback if the API is down. */
+export function oldNetDirectUrl(url: string, year = OLDNET_DEFAULT_YEAR): string {
   const query = new URLSearchParams({
     year: String(year),
     scripts: 'false',
@@ -30,6 +34,32 @@ export function oldNetProxyUrl(url: string, year = OLDNET_DEFAULT_YEAR): string 
     url,
   });
   return `${OLDNET_ORIGIN}/get?${query.toString()}`;
+}
+
+/**
+ * Same-origin URL for the cached archive API. The Worker at
+ * `/api/oldnet/*` fetches The Old Net once and caches the sanitized result.
+ */
+export function oldNetProxyUrl(url: string, year = OLDNET_DEFAULT_YEAR): string {
+  if (url.startsWith(OLDNET_API_PREFIX)) return url;
+  const original = oldNetOriginalUrl(url) ?? url;
+  let target = original;
+  // Normalize absolute URLs so the browser and the Worker agree on the
+  // canonical cache key (e.g. a missing trailing slash).
+  if (/^https?:\/\//i.test(original)) {
+    try {
+      const parsed = new URL(original);
+      parsed.hash = '';
+      target = parsed.href;
+    } catch {
+      // Keep the original string.
+    }
+  }
+  const query = new URLSearchParams({
+    url: target,
+    year: String(year),
+  });
+  return `${OLDNET_API_PREFIX}/get?${query.toString()}`;
 }
 
 export function oldNetOriginalUrl(href: string): string | null {
@@ -102,7 +132,7 @@ export const oldNetFavorites: OldNetSite[] = [
   },
 ];
 
-export const webSites: WebSite[] = [
+const baseWebSites: WebSite[] = [
   {
     host: `${WEB_ORIGIN}/`,
     path: '/web/',
@@ -129,35 +159,6 @@ export const webSites: WebSite[] = [
     description: 'A devlog from a bedroom in 1998.',
     favorite: true,
     aliases: ['http://www.pantsplace.net/blog/', 'http://pantsplace.net/blog/'],
-  },
-  {
-    host: `${WEB_ORIGIN}/~kylie/`,
-    path: '/web/~kylie/',
-    title: "Kylie's Cyber Sanctuary",
-    description: 'Final Fantasy, Gundam Wing and warehouse raves, updated from a bedroom in 1998.',
-    favorite: true,
-    aliases: [
-      'http://members.tripod.com/~kylie_log/',
-      'http://www.tripod.com/~kylie_log/',
-    ],
-  },
-  {
-    host: `${WEB_ORIGIN}/~pants/`,
-    path: '/web/~pants/',
-    title: 'pants_the_person // GeoCities',
-    description: 'The older, louder, more animated homepage.',
-    aliases: ['http://www.geocities.com/SiliconValley/Byte/1998/'],
-  },
-  {
-    host: `${WEB_ORIGIN}/~ultimateshades/`,
-    path: '/web/~ultimateshades/',
-    title: 'UltimateShades',
-    description: 'A 1998 gaming shrine: Monkey Island, LucasArts adventures, reviews and high scores.',
-    favorite: true,
-    aliases: [
-      'http://www.geocities.com/SiliconValley/Byte/1998/ultimateshades/',
-      'http://geocities.com/SiliconValley/Byte/1998/ultimateshades/',
-    ],
   },
   {
     host: `${WEB_ORIGIN}/downloads/`,
@@ -189,6 +190,33 @@ export const webSites: WebSite[] = [
     aliases: ['http://www.altavista.com/', 'http://altavista.com/'],
   },
 ];
+
+/** Period-correct aliases retained when the old ~ pages were replaced. */
+const LEGACY_SITE_ALIASES: Record<string, string[]> = {
+  'member/pants': [
+    'http://www.geocities.com/SiliconValley/Byte/1998/',
+    'http://geocities.com/SiliconValley/Byte/1998/',
+  ],
+  'member/kylie': [
+    'http://members.tripod.com/~kylie_log/',
+    'http://www.tripod.com/~kylie_log/',
+  ],
+  'member/shades': [
+    'http://www.geocities.com/SiliconValley/Byte/1998/ultimateshades/',
+    'http://geocities.com/SiliconValley/Byte/1998/ultimateshades/',
+  ],
+};
+
+const personalWebSites: WebSite[] = personalSites.map((site) => ({
+  host: site.address,
+  path: site.contentPath,
+  title: site.title,
+  description: site.description,
+  favorite: site.favorite,
+  aliases: LEGACY_SITE_ALIASES[`${site.kind}/${site.slug}`],
+}));
+
+export const webSites: WebSite[] = [...baseWebSites, ...personalWebSites];
 
 function hostKey(value: string): string {
   return value

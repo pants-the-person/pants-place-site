@@ -6,8 +6,9 @@
 - Runtime: **Cloudflare Workers static assets**
 - Worker: `pants-place-site`
 - Route: `pants.place/*` (zone `pants.place`)
+- Archive API Worker: `pants-place-oldnet-api` (`wrangler.api.jsonc`)
 - Build: `npm run build` → `dist`
-- Deploy: `npm run deploy` (`npm run build && wrangler deploy`)
+- Deploy: `npm run deploy` (site) or `npm run deploy:all` (site + API)
 - Compatibility date: **2026-10-01** (`wrangler.jsonc`)
 - Node: **26.13.0** (`.nvmrc`, `.node-version`, `engines`)
 - Package manager: npm 11.20.0 (`packageManager` field)
@@ -34,6 +35,7 @@ This requires DNS/custom-domain permissions that the current Wrangler OAuth toke
 
 ```bash
 nvm use
+git submodule update --init --recursive
 npm install
 npm run build
 npm run deploy
@@ -43,6 +45,107 @@ npm run deploy
 
 ```bash
 npm run cf:dry-run
+```
+
+## Personal site submodules
+
+The member and character sites are separate Astro repositories mounted under
+`sites/`:
+
+```text
+sites/member/pants/
+sites/member/kylie/
+sites/member/shades/
+sites/member/pip/
+sites/char/chogi/
+sites/char/jiroji/
+```
+
+`npm run build` and `npm run dev` call `scripts/sites/build.mjs`. It initializes
+missing submodules, installs each site's dependencies, runs its `npm run build`,
+and copies the result into `public/web/<kind>/<slug>/`.
+
+The copy step also:
+
+- rewrites the site's GitHub Pages base to the local fake-web path
+- rewrites links between the personal sites to local `/web/...` paths
+- strips `<script>` tags and inline handlers to enforce the no-JS rule
+- validates the resulting HTML
+
+The generated `public/web/member/` and `public/web/char/` trees are gitignored.
+`src/generated/personal-sites.ts` is generated and should be committed when the
+site metadata changes.
+
+Useful commands:
+
+```bash
+npm run sites:build          # incremental build for local development
+npm run sites:build:force    # rebuild every site
+npm run sites:update         # bump all site submodules to remote main
+```
+
+Submodule pointers are pinned. A contributor updates their own repository, then
+the parent pointer is bumped separately. Because the parent build executes each
+site's `npm ci` and `npm run build`, review submodule bumps before deploying or
+run sub-site builds in a CI job without parent deploy secrets.
+
+The old `/web/~pants/`, `/web/~kylie/` and `/web/~ultimateshades/` paths are
+301-redirected by `public/_redirects` to the new content. The public
+`/~pants/`, `/~kylie/` and `/~ultimateshades/` paths redirect to the new desktop
+deep links.
+
+## Cached Old Net API Worker
+
+The archive API is a second Worker deployed from this repository. It does **not**
+replace or modify the site Worker.
+
+- Worker: `pants-place-oldnet-api`
+- Config: `wrangler.api.jsonc`
+- Source: `worker/oldnet.ts`
+- Routes: `pants.place/api/oldnet` and `pants.place/api/oldnet/*`
+- Deploy: `npm run deploy:api`
+- Local: `npm run cf:preview:api`
+- Config check: `npm run cf:dry-run:api`
+
+Cloudflare route matching is most-specific-first, so `pants.place/api/oldnet/*`
+wins over the site's `pants.place/*` route. No DNS record, certificate or
+custom-domain change is needed.
+
+Cloudflare Workers Cache is enabled in `wrangler.api.jsonc`:
+
+- archived pages: `Cache-Control: public, max-age=31536000, immutable, no-transform`
+- search results: `public, max-age=300, no-transform`
+- `cross_version_cache: true`, so a new API deployment does not discard the
+  year-long cache
+
+`no-transform` is required. Without it, the zone's JavaScript detections inject
+a Cloudflare challenge script into HTML after the Worker returns, which both
+pollutes the archived page and makes the body differ per request.
+
+Only successful `200` responses are cacheable. Errors, `429`s and upstream
+failures return `no-store`. The client sends canonical query strings and the
+Worker `308`s non-canonical ones, because Workers Cache keys on the exact path
+and query string.
+
+The Worker must send a browser User-Agent. The Old Net deflects obvious bots
+with a `200 Hello World` placeholder; caching that would poison the entry.
+That is why `worker/oldnet.ts` sets `BROWSER_UA`.
+
+To invalidate cached pages after a sanitizer or URL-rewriting change, bump the
+API prefix (for example, `/api/oldnet/v2` to `/api/oldnet/v3`) and update
+`src/kernel/web.ts` and the inline scripts. The new path is a fresh cache
+namespace.
+
+Verify after a deploy:
+
+```bash
+# 200, then a cached 200 with cf-cache-status: HIT
+curl -fsS -D- -o /dev/null \
+  'https://pants.place/api/oldnet/v2/health'
+curl -fsS -D- -o /dev/null \
+  'https://pants.place/api/oldnet/v2/get?url=http%3A%2F%2Fexample.com%2F&year=1998'
+curl -fsS -D- -o /dev/null \
+  'https://pants.place/api/oldnet/v2/get?url=http%3A%2F%2Fexample.com%2F&year=1998'
 ```
 
 ## Static assets
@@ -91,6 +194,16 @@ The current deployment was performed with an authenticated local `wrangler deplo
 
 Workers Builds currently defaults to Node 24.22.1 and preinstalls 22.23.4/24.22.1. Node 26.13.0 is selected via `.nvmrc`/`NODE_VERSION`; if Cloudflare’s build image cannot install Node 26, fall back to `NODE_VERSION=24.22.1` until the image moves to the next LTS.
 
+The archive API needs a second Workers Builds project, also connected to this repository:
+
+1. Create a Workers Builds project for `pants-place-oldnet-api`.
+2. Point it at the same GitHub repository and `main` branch.
+3. Build command: `npm ci` (the API has no Astro build step).
+4. Deploy command: `npx wrangler deploy -c wrangler.api.jsonc`.
+5. Set `NODE_VERSION=26.13.0`.
+
+Both projects can use the same repository; they deploy different Worker names and routes.
+
 ## Matrix `.well-known`
 
 Matrix discovery documents are part of the Worker as static files and are also served canonically by the standalone `pants-place-well-known` Cloudflare Worker:
@@ -113,7 +226,8 @@ curl -fsS https://pants.place/ | head
 
 ## Rollback
 
-- Remove the `pants.place/*` Worker route (or deploy a version without routes).
+- Site: remove the `pants.place/*` Worker route (or deploy a version without routes).
+- API: `wrangler rollback -c wrangler.api.jsonc`, or remove the `pants.place/api/oldnet*` routes. The site Worker is unaffected because it never ran the API code.
 - The Pages project and its custom domain are still intact and will serve the previous deployment.
 - The Pages production/preview compatibility date was updated to `2026-10-01` during the transition.
 

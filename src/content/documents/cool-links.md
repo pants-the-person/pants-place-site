@@ -13,8 +13,12 @@ THE PANTS PLACE WEBRING
 MEMBERS
 -------
   * http://www.pants.place/        (you are here)
-  * http://www.pants.place/~kylie/
-  * http://www.pants.place/~pants/
+  * http://www.pants.place/member/pants/
+  * http://www.pants.place/member/kylie/
+  * http://www.pants.place/member/shades/
+  * http://www.pants.place/member/pip/
+  * http://www.pants.place/char/chogi/
+  * http://www.pants.place/char/jiroji/
   * http://www.pants.place/webring/
 
 OTHER COOL SITES

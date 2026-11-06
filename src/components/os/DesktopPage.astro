@@ -1,0 +1,67 @@
+---
+import Desktop from './Desktop';
+import BootScreen from './BootScreen.astro';
+import type { PersonalSiteDeepLink } from '../../kernel/autostart';
+import type { PersonalSite } from '../../kernel/sites';
+import type { DesktopDocument } from '../../kernel/types';
+import '../../styles/win98.css';
+import '../../styles/apps.css';
+import '../../styles/wine.css';
+
+interface Props {
+  documents: DesktopDocument[];
+  site?: PersonalSite | null;
+  deepLink?: PersonalSiteDeepLink;
+}
+
+const {
+  documents,
+  site = null,
+  deepLink,
+} = Astro.props;
+
+const title = site
+  ? `${site.displayName} — Pants Place 98`
+  : 'Pants Place 98 — a complete retro desktop';
+const description = site
+  ? site.description
+  : 'Pants Place 98 is a functional Windows 98-style desktop in your browser: a real FreeDOS VM, Winamp with MIDI and OGG playback, and a fake 1998 internet.';
+const socialDescription = site
+  ? site.description
+  : 'A functional Windows 98-style desktop with a real FreeDOS VM, Winamp, and a fake 1998 internet.';
+---
+
+<!doctype html>
+<html lang="en" data-scheme="standard" data-wallpaper="teal">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#008080" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={socialDescription} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={site ? `https://pants.place${site.launcherPath}` : 'https://pants.place/'} />
+    <meta property="og:image" content="https://pants.place/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <BootScreen />
+    <Desktop client:load documents={documents} deepLink={deepLink} />
+
+    <noscript>
+      <div style="position: fixed; inset: 0; background: #008080; color: #fff; padding: 32px; font-family: monospace">
+        <h1>Pants Place 98</h1>
+        <p>This desktop needs JavaScript. The fake internet does not:</p>
+        <ul>
+          {site ? <li><a style="color: #fff" href={site.contentPath}>{site.displayName}</a></li> : null}
+          <li><a style="color: #fff" href="/web/">PantsNet home</a></li>
+          <li><a style="color: #fff" href="/web/news/">News</a></li>
+          <li><a style="color: #fff" href="/web/blog/">The Pants Log</a></li>
+        </ul>
+      </div>
+    </noscript>
+  </body>
+</html>
